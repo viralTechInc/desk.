@@ -39,6 +39,7 @@ enum DebugHooks {
             case "addBlock": model.actions.addBlock()
             case "demo": model.actions.loadDemoData()
             case "removeDemo": model.actions.removeDemoData()
+            case "toggleAppearance": model.settings.toggleAppearance()
             case "help": state.showShortcutHelp = true
             case "escape": state.escape()
             case "focusBrain": state.requestFocus(.brainDump)

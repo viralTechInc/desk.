@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import Observation
 
@@ -24,6 +25,18 @@ enum Appearance: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppSettings {
+    /// What is actually on screen now: the chosen theme, or the system's when set to System.
+    var effectiveColorScheme: ColorScheme {
+        if let scheme = appearance.colorScheme { return scheme }
+        let match = NSApp?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua])
+        return match == .darkAqua ? .dark : .light
+    }
+
+    /// Flips between light and dark from whatever is showing; leaves System mode behind.
+    func toggleAppearance() {
+        appearance = effectiveColorScheme == .dark ? .light : .dark
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     var appearance: Appearance { didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) } }

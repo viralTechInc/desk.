@@ -69,6 +69,7 @@ xcodebuild -project Desk.xcodeproj -scheme Desk -destination 'platform=macOS' te
 | A | Add a block |
 | Esc | Close popover, deselect |
 | ⌘Z / ⇧⌘Z | Undo / redo (text while typing, otherwise block changes) |
+| ⇧⌘L | Switch light / dark (also the sun/moon button in the toolbar; View → Appearance for System) |
 | ? | Shortcut help |
 
 Letter shortcuts only fire when you are not typing in a text field. The menu bar carries

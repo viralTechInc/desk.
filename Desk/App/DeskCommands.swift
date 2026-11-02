@@ -24,6 +24,13 @@ struct DeskCommands: Commands {
             Button("Load Demo Data…") { model.appState.confirmDemoData = true }
             Button("Remove Demo Data…") { model.appState.confirmRemoveDemoData = true }
         }
+        CommandGroup(after: .toolbar) {
+            Button("Toggle Light / Dark") { model.settings.toggleAppearance() }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+            Picker("Appearance", selection: Binding(get: { model.settings.appearance }, set: { model.settings.appearance = $0 })) {
+                ForEach(Appearance.allCases) { Text($0.label).tag($0) }
+            }
+        }
         CommandMenu("Go") {
             Button("Today") { model.appState.goToToday() }
                 .keyboardShortcut("t", modifiers: .command)

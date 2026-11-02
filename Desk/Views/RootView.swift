@@ -125,6 +125,8 @@ private struct RootLifecycle: ViewModifier {
 struct ToolbarView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlannerStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         @Bindable var appState = appState
@@ -154,6 +156,14 @@ struct ToolbarView: View {
 
             SaveIndicator(state: store.saveState)
                 .frame(minWidth: 90, alignment: .trailing)
+
+            Button { settings.toggleAppearance() } label: {
+                Image(systemName: scheme == .dark ? "sun.max" : "moon")
+            }
+            .buttonStyle(IconButtonStyle())
+            .help(scheme == .dark ? "Switch to light mode (⇧⌘L)" : "Switch to dark mode (⇧⌘L)")
+            .accessibilityLabel(scheme == .dark ? "Switch to light mode" : "Switch to dark mode")
+            .accessibilityIdentifier("toolbar.appearance")
         }
         .padding(.leading, 84) // room for the window controls
         .padding(.trailing, 20)

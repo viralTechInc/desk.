@@ -18,7 +18,7 @@ struct ShortcutHelpView: View {
         ]),
         ("General", [
             ("Esc", "Close popover / deselect"), ("⌘Z  /  ⇧⌘Z", "Undo / redo"),
-            ("⇧⌘E", "Export backup"), ("⌘,", "Settings"), ("?", "This help"),
+            ("⇧⌘L", "Light / dark"), ("⇧⌘E", "Export backup"), ("⌘,", "Settings"), ("?", "This help"),
         ]),
     ]
 
