@@ -25,7 +25,8 @@ final class CalendarService {
     @ObservationIgnored private let store = EKEventStore()
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var observers: [any NSObjectProtocol] = []
-    @ObservationIgnored private var disabledIDs: Set<String>
+    /// Observed so the Calendars pane redraws when a checkbox changes.
+    private var disabledIDs: Set<String>
 
     private enum Keys {
         static let disabled = "calendar.disabledIDs"
