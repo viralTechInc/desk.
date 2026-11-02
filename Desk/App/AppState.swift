@@ -51,6 +51,7 @@ final class AppState {
     var alert: AlertContent?
     var pendingImport: BackupDocument?
     var confirmDemoData = false
+    var confirmRemoveDemoData = false
 
     /// Incremented to request focus; the target says where.
     private(set) var focusRequest: (target: FocusTarget, token: Int) = (.brainDump, 0)

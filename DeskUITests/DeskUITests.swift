@@ -57,7 +57,7 @@ final class DeskUITests: XCTestCase {
 
     func testDragCreateThenMoveThenResize() throws {
         // Work on tomorrow so today's current-time line never interferes.
-        app.buttons["toolbar.tomorrow"].click()
+        app.typeKey("t", modifierFlags: [.command, .shift])
         let col = column
 
         // Drag 10:00 → 11:30 creates a block and opens its editor.
@@ -165,7 +165,7 @@ final class DeskUITests: XCTestCase {
     }
 
     func testRecurringRoutineAndScopePrompt() throws {
-        app.buttons["toolbar.tomorrow"].click()
+        app.typeKey("t", modifierFlags: [.command, .shift])
         let col = column
         point(hour: 7, in: col).click(forDuration: 0.1, thenDragTo: point(hour: 8, in: col))
         let title = app.textFields["blockEditor.title"]

@@ -74,6 +74,12 @@ private struct RootDialogs: ViewModifier {
             } message: {
                 Text("Adds a sample week of routines, a few blocks and a filled-in page for today, alongside anything you already have.")
             }
+            .alert("Remove the demo data?", isPresented: $appState.confirmRemoveDemoData) {
+                Button("Remove", role: .destructive) { actions.removeDemoData() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Removes the sample routines, blocks and notes exactly as Load Demo Data added them for this week. Anything you changed or wrote yourself stays.")
+            }
             .alert(
                 appState.alert?.title ?? "",
                 isPresented: Binding(get: { appState.alert != nil }, set: { if !$0 { appState.alert = nil } }),
@@ -142,13 +148,6 @@ struct ToolbarView: View {
                     .buttonStyle(IconButtonStyle())
                     .help(appState.viewMode == .day ? "Next day (K)" : "Next week (K)")
                     .accessibilityLabel(appState.viewMode == .day ? "Next day" : "Next week")
-                Button("Today") { appState.goToToday() }
-                    .buttonStyle(QuietButtonStyle())
-                    .help("Go to today (T)")
-                Button("Tomorrow") { appState.goToTomorrow() }
-                    .buttonStyle(QuietButtonStyle(prominent: true))
-                    .help("Plan tomorrow (N)")
-                    .accessibilityIdentifier("toolbar.tomorrow")
             }
 
             Spacer(minLength: 16)

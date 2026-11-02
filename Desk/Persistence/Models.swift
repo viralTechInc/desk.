@@ -34,15 +34,26 @@ final class DailyPage {
 final class WeeklyPage {
     @Attribute(.unique) var weekStartKey: Int
     var intentions: [String]
+    /// Freeform notes for the whole week, shown beside the day's brain dump. Stored optional
+    /// so rows written before the column existed (NULL) still load; see `brainDump`.
+    var brainDumpRaw: String?
     var updatedAt: Date
 
-    init(weekStartKey: Int, intentions: [String] = [], now: Date = Date()) {
+    init(weekStartKey: Int, intentions: [String] = [], brainDump: String = "", now: Date = Date()) {
         self.weekStartKey = weekStartKey
         self.intentions = intentions
+        self.brainDumpRaw = brainDump.isEmpty ? nil : brainDump
         self.updatedAt = now
     }
 
-    var isBlank: Bool { intentions.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty } }
+    var brainDump: String {
+        get { brainDumpRaw ?? "" }
+        set { brainDumpRaw = newValue.isEmpty ? nil : newValue }
+    }
+
+    var isBlank: Bool {
+        brainDump.isEmpty && intentions.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
 }
 
 @Model

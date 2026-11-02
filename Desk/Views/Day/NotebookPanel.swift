@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// TOP PRIORITIES over a freeform BRAIN DUMP, on the writing surface.
+/// TOP PRIORITIES over two freeform pages side by side: the day's BRAIN DUMP and the
+/// WEEK BRAIN DUMP shared by every day of that week.
 struct NotebookPanel: View {
     @Environment(AppState.self) private var appState
     let editor: DayPageEditor
+    let weekEditor: WeekPageEditor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -11,11 +13,33 @@ struct NotebookPanel: View {
                 .padding(.bottom, 6)
             PriorityEditor(editor: editor)
 
-            SectionLabel(text: "Brain dump")
-                .padding(.top, 26)
-                .padding(.bottom, 4)
-            BrainDumpEditor(editor: editor)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
+                    SectionLabel(text: "Brain dump")
+                        .padding(.bottom, 4)
+                    BrainDumpEditor(editor: editor)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .padding(.trailing, Theme.padding)
+
+                Hairline(vertical: true)
+
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        SectionLabel(text: "Week brain dump")
+                            .fixedSize()
+                        Text(appState.calendar.weekRangeString(containing: editor.date))
+                            .font(Theme.caption)
+                            .foregroundStyle(Theme.inkFaint)
+                            .lineLimit(1)
+                    }
+                    .padding(.bottom, 4)
+                    WeekBrainDumpEditor(editor: weekEditor)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .padding(.leading, Theme.padding)
+            }
+            .padding(.top, 26)
         }
         .padding(Theme.padding)
     }
@@ -93,19 +117,48 @@ private struct PriorityRow: View {
     }
 }
 
-/// Freeform notes: a plain NSTextView with its own undo stack, a paper hint when empty.
+/// The day's freeform notes.
 struct BrainDumpEditor: View {
     @Environment(AppState.self) private var appState
     let editor: DayPageEditor
 
     var body: some View {
+        NotesEditor(
+            text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
+            hint: "Write freely — thoughts, ideas, reminders. Nothing here becomes a task.",
+            focusToken: appState.focusRequest.target == .brainDump ? appState.focusRequest.token : 0,
+            accessibilityLabel: "Brain dump")
+    }
+}
+
+/// Notes for the whole week; the same text appears on every day of that week.
+struct WeekBrainDumpEditor: View {
+    let editor: WeekPageEditor
+
+    var body: some View {
+        NotesEditor(
+            text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
+            hint: "Loose ends, carry-overs and ideas for the whole week.",
+            focusToken: 0,
+            accessibilityLabel: "Week brain dump")
+    }
+}
+
+/// Freeform notes: a plain NSTextView with its own undo stack, a paper hint when empty.
+struct NotesEditor: View {
+    @Binding var text: String
+    let hint: String
+    let focusToken: Int
+    let accessibilityLabel: String
+
+    var body: some View {
         ZStack(alignment: .topLeading) {
-            if editor.brainDump.isEmpty {
+            if text.isEmpty {
                 RuledPaper()
                     .padding(.top, 2)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
-                Text("Write freely — thoughts, ideas, reminders. Nothing here becomes a task.")
+                Text(hint)
                     .font(Theme.body)
                     .foregroundStyle(Theme.inkFaint)
                     .padding(.top, 8)
@@ -113,10 +166,8 @@ struct BrainDumpEditor: View {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
-            PlainTextView(
-                text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
-                focusToken: appState.focusRequest.target == .brainDump ? appState.focusRequest.token : 0)
-                .accessibilityLabel("Brain dump")
+            PlainTextView(text: $text, focusToken: focusToken)
+                .accessibilityLabel(accessibilityLabel)
         }
     }
 }

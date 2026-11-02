@@ -98,7 +98,7 @@ final class PlannerStore {
     func weekEditor(for weekStart: LocalDate) -> WeekPageEditor {
         if let e = weekEditors[weekStart] { return e }
         let page = fetchWeek(weekStart)
-        let e = WeekPageEditor(weekStart: weekStart, intentions: page?.intentions ?? [], store: self)
+        let e = WeekPageEditor(weekStart: weekStart, intentions: page?.intentions ?? [], brainDump: page?.brainDump ?? "", store: self)
         weekEditors[weekStart] = e
         return e
     }
@@ -130,7 +130,17 @@ final class PlannerStore {
         scheduleSave()
     }
 
+    func setWeekBrainDump(_ text: String, for weekStart: LocalDate) {
+        let page = fetchWeek(weekStart) ?? insertWeek(weekStart)
+        guard page.brainDump != text else { return }
+        page.brainDump = text
+        page.updatedAt = now()
+        touchedWeeks.insert(weekStart)
+        scheduleSave()
+    }
+
     func pageRecord(for date: LocalDate) -> PageRecord? { fetchPage(date)?.record }
+    func weekRecord(for weekStart: LocalDate) -> WeekRecord? { fetchWeek(weekStart)?.record }
 
     private func insertPage(_ date: LocalDate) -> DailyPage {
         let p = DailyPage(dateKey: date.key, now: now())
@@ -569,6 +579,65 @@ final class PlannerStore {
         for r in doc.overrides { context.insert(OccurrenceOverride(record: r)) }
     }
 
+    /// Removes exactly the records `SeedData` adds for the week containing `date`, leaving
+    /// everything the user made alone. Matching is by content, since demo IDs are random.
+    /// Returns how many rules, blocks and pages were removed.
+    @discardableResult
+    func removeDemoData(weekContaining date: LocalDate) -> Int {
+        let seed = SeedData.document(weekContaining: date, calendar: calendar)
+        var removed = 0
+
+        let rules = fetch(FetchDescriptor<RecurrenceRule>())
+        var removedRuleIDs: Set<UUID> = []
+        for seedRule in seed.rules {
+            if let match = rules.first(where: { r in
+                !removedRuleIDs.contains(r.id) && Self.matches(r, seedRule)
+            }) {
+                removedRuleIDs.insert(match.id)
+                context.delete(match)
+                removed += 1
+            }
+        }
+        if !removedRuleIDs.isEmpty {
+            for o in overrides(forRules: Array(removedRuleIDs)) { context.delete(o) }
+        }
+
+        let blocks = fetch(FetchDescriptor<TimeBlock>())
+        for seedBlock in seed.blocks {
+            if let match = blocks.first(where: { Self.matches($0, seedBlock) }) {
+                context.delete(match)
+                removed += 1
+            }
+        }
+
+        for seedPage in seed.pages {
+            if let page = fetchPage(seedPage.date), page.priorities == seedPage.priorities, page.brainDump == seedPage.brainDump {
+                context.delete(page)
+                removed += 1
+            }
+        }
+        for seedWeek in seed.weeks {
+            if let week = fetchWeek(seedWeek.weekStart),
+               DayPageEditor.trimmed(week.intentions) == DayPageEditor.trimmed(seedWeek.intentions), week.brainDump.isEmpty {
+                context.delete(week)
+                removed += 1
+            }
+        }
+        afterBulkChange()
+        return removed
+    }
+
+    private static func matches(_ r: RecurrenceRule, _ seed: RuleRecord) -> Bool {
+        guard r.title == seed.title, r.categoryRaw == seed.category.rawValue, r.note == seed.note else { return false }
+        guard r.startMinutes == seed.startMinutes, r.endMinutes == seed.endMinutes else { return false }
+        return r.weekdayMask == seed.weekdays.mask && r.effectiveStartKey == seed.effectiveStart.key && r.effectiveEndKey == nil
+    }
+
+    private static func matches(_ b: TimeBlock, _ seed: BlockRecord) -> Bool {
+        guard b.dateKey == seed.date.key, b.title == seed.title, b.categoryRaw == seed.category.rawValue else { return false }
+        return b.startMinutes == seed.startMinutes && b.endMinutes == seed.endMinutes && b.note == seed.note
+    }
+
     func deleteAllData() {
         for p in fetch(FetchDescriptor<DailyPage>()) { context.delete(p) }
         for p in fetch(FetchDescriptor<WeeklyPage>()) { context.delete(p) }
@@ -723,14 +792,18 @@ final class DayPageEditor {
 final class WeekPageEditor {
     let weekStart: LocalDate
     private(set) var intentions: [String]
+    var brainDump: String {
+        didSet { store?.setWeekBrainDump(brainDump, for: weekStart) }
+    }
     @ObservationIgnored private weak var store: PlannerStore?
     static let rows = 3
 
-    init(weekStart: LocalDate, intentions: [String], store: PlannerStore?) {
+    init(weekStart: LocalDate, intentions: [String], brainDump: String = "", store: PlannerStore?) {
         self.weekStart = weekStart
         var r = intentions
         while r.count < Self.rows { r.append("") }
         self.intentions = Array(r.prefix(Self.rows))
+        self.brainDump = brainDump
         self.store = store
     }
 

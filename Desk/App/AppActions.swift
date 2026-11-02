@@ -159,6 +159,15 @@ final class AppActions {
         store.afterBulkChange()
     }
 
+    func removeDemoData() {
+        let removed = store.removeDemoData(weekContaining: appState.today)
+        appState.alert = .init(
+            title: removed == 0 ? "No demo data found" : "Demo data removed",
+            message: removed == 0
+                ? "Nothing matching the sample week is in your planner."
+                : "Removed \(removed) sample item\(removed == 1 ? "" : "s"). Your own notes and blocks were left as they were.")
+    }
+
     func revealDataFolder() {
         if let url = try? DeskSchema.storeURL() {
             NSWorkspace.shared.activateFileViewerSelecting([url])

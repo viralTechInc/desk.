@@ -8,7 +8,15 @@ import SwiftUI
 enum DebugHooks {
     static let name = Notification.Name("com.desk.planner.debug")
 
+    /// Only instances started for scripting listen, so an app run from Xcode against the
+    /// real store never reacts to a stray command.
+    static var isEnabled: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["DESK_SCRATCH_STORE"] != nil || env["DESK_DEBUG_HOOKS"] == "1"
+    }
+
     static func install(model: AppModel) {
+        guard isEnabled else { return }
         DistributedNotificationCenter.default().addObserver(forName: name, object: nil, queue: .main) { note in
             let info = note.userInfo as? [String: String] ?? [:]
             MainActor.assumeIsolated { handle(info, model: model) }
@@ -30,6 +38,7 @@ enum DebugHooks {
             case "week": state.show(.week)
             case "addBlock": model.actions.addBlock()
             case "demo": model.actions.loadDemoData()
+            case "removeDemo": model.actions.removeDemoData()
             case "help": state.showShortcutHelp = true
             case "escape": state.escape()
             case "focusBrain": state.requestFocus(.brainDump)

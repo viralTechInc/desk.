@@ -86,6 +86,10 @@ Letter shortcuts only fire when you are not typing in a text field. The menu bar
 - **Notebook**: priorities start as three numbered lines; Return on the last line adds one,
   Backspace on an empty line removes it. The brain dump is plain text with tabs, undo/redo,
   spell check and find (⌘F). Nothing is ever turned into a task or carried to another day.
+  Beside it sits the **week brain dump**: one free page shared by every day of that week.
+  The Day page gives the notebook about two thirds of the width; the schedule takes the rest.
+- **Demo data**: File → Load Demo Data… adds a sample week; File → Remove Demo Data… takes
+  exactly those records out again and leaves anything you wrote or changed.
 - **Settings (⌘,)**: appearance, hour height (fit to window / fixed), visible hours, first day of
   week, weekly intentions, data location, backup.
 

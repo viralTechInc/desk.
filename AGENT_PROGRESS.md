@@ -9,7 +9,7 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
 ## Milestones (all done 2026-11-01)
 - [x] Phase 0 — scaffold, build baseline
 - [x] Phase 1 — domain models, SwiftData persistence, recurrence engine, undo transactions, backup format, seed data, unit tests
-- [x] Phase 2 — Day screen: toolbar, serif date heading, 52/48 split (stacks under 900 pt), priorities, brain dump (NSTextView), timeline
+- [x] Phase 2 — Day screen: toolbar, serif date heading, 64/36 split (stacks under 900 pt), priorities, day + week brain dumps side by side (NSTextView), timeline
 - [x] Phase 3 — Week screen: seven columns, drag-create / move across days / resize, overlap columns, scope prompt for routines, intentions row
 - [x] Phase 4 — letter shortcuts + menus, context menus, settings, shortcut help, backup export/import, demo data (opt-in), app icon, Release build in `dist/`
 
@@ -53,6 +53,9 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
   `date yyyy-mm-dd`, `resize w h`, `appearance light|dark|system`. Paths must be inside the sandbox container
   (`~/Library/Containers/com.desk.planner/Data/tmp`).
 - Env: `DESK_SCRATCH_STORE=<name>` (throwaway store in the container's tmp) or `DESK_STORE_PATH`; `DESK_WINDOW_SIZE=1440x900` pins the window.
+- Hooks are installed only when `DESK_SCRATCH_STORE` or `DESK_DEBUG_HOOKS=1` is set. The notification is a broadcast, and on
+  2026-11-02 an app run from Xcode against the real store answered a scripted `demo` command; the gate prevents a repeat.
+  `action removeDemo` (and File → Remove Demo Data…) deletes exactly the seed records by content.
 - Posted `NSEvent`s reach AppKit controls/SwiftUI buttons but NOT SwiftUI gestures; drags are tested with XCUITest's
   `click(forDuration:thenDragTo:)` (`press(forDuration:thenDragTo:)` does not drive SwiftUI drags on macOS).
 

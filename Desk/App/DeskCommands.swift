@@ -22,6 +22,7 @@ struct DeskCommands: Commands {
             Button("Import Backup…") { model.actions.importBackup() }
             Divider()
             Button("Load Demo Data…") { model.appState.confirmDemoData = true }
+            Button("Remove Demo Data…") { model.appState.confirmRemoveDemoData = true }
         }
         CommandMenu("Go") {
             Button("Today") { model.appState.goToToday() }

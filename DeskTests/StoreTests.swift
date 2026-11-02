@@ -225,6 +225,46 @@ struct StoreTests {
         #expect(wedAfternoon?.isException == true)
     }
 
+    @Test func weekBrainDumpPersistsAndSurvivesBackup() throws {
+        let store = try TestSupport.store()
+        let editor = store.weekEditor(for: monday)
+        editor.brainDump = "Call the accountant before Friday"
+        store.flush()
+        #expect(store.weekRecord(for: monday)?.brainDump == "Call the accountant before Friday")
+
+        let data = try store.exportBackup()
+        let fresh = try TestSupport.store()
+        try fresh.importBackup(try PlannerStore.decodeBackup(data))
+        #expect(fresh.weekEditor(for: monday).brainDump == "Call the accountant before Friday")
+
+        // Backups from before the field existed still decode.
+        let legacy = Data(#"{"weekStart":"2026-11-02","intentions":["Rest"],"updatedAt":"2026-11-02T12:00:00Z"}"#.utf8)
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let record = try decoder.decode(WeekRecord.self, from: legacy)
+        #expect(record.brainDump == "" && record.intentions == ["Rest"])
+    }
+
+    @Test func removeDemoDataLeavesUserContent() throws {
+        let store = try TestSupport.store()
+        store.createBlock(BlockDraft(title: "Untitled", date: monday, startMinutes: 495, endMinutes: 555))
+        store.insert(SeedData.document(weekContaining: monday, calendar: cal))
+        store.afterBulkChange()
+        // The user edits one demo routine; that one must survive as theirs.
+        let gym = store.occurrences(on: monday).first { $0.title == "Gym" }!
+        store.update(gym, with: BlockDraft(title: "Gym", date: monday, startMinutes: 420, endMinutes: 510, category: .fitness, weekdays: WeekdaySet([.monday, .wednesday, .friday])), scope: .entireSeries)
+        let before = store.occurrences(in: week).count
+
+        let removed = store.removeDemoData(weekContaining: monday)
+        #expect(removed > 0)
+        let left = store.occurrences(in: week)
+        #expect(left.count < before)
+        #expect(left.contains { $0.title == "Untitled" && $0.startMinutes == 495 })
+        #expect(left.contains { $0.title == "Gym" && $0.endMinutes == 510 })
+        #expect(!left.contains { $0.title == "Morning routine" || $0.title == "Dentist" })
+        #expect(store.pageRecord(for: monday) == nil)
+        #expect(store.removeDemoData(weekContaining: monday) == 0)
+    }
+
     @Test func dayAndWeekShareOneSource() throws {
         let store = try TestSupport.store()
         store.createBlock(BlockDraft(title: "Shared", date: TestSupport.d(2026, 11, 5), startMinutes: 600, endMinutes: 660))

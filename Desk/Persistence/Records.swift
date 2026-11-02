@@ -14,7 +14,24 @@ struct PageRecord: Codable, Hashable, Sendable {
 struct WeekRecord: Codable, Hashable, Sendable {
     var weekStart: LocalDate
     var intentions: [String]
+    var brainDump: String
     var updatedAt: Date
+
+    init(weekStart: LocalDate, intentions: [String], brainDump: String = "", updatedAt: Date) {
+        self.weekStart = weekStart
+        self.intentions = intentions
+        self.brainDump = brainDump
+        self.updatedAt = updatedAt
+    }
+
+    // Backups written before the week brain dump existed have no `brainDump` key.
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        weekStart = try c.decode(LocalDate.self, forKey: .weekStart)
+        intentions = try c.decode([String].self, forKey: .intentions)
+        brainDump = try c.decodeIfPresent(String.self, forKey: .brainDump) ?? ""
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+    }
 }
 
 struct BlockRecord: Codable, Hashable, Sendable {
@@ -105,10 +122,10 @@ extension DailyPage {
 
 extension WeeklyPage {
     var record: WeekRecord {
-        WeekRecord(weekStart: LocalDate(key: weekStartKey)!, intentions: intentions, updatedAt: updatedAt)
+        WeekRecord(weekStart: LocalDate(key: weekStartKey)!, intentions: intentions, brainDump: brainDump, updatedAt: updatedAt)
     }
     convenience init(record r: WeekRecord) {
-        self.init(weekStartKey: r.weekStart.key, intentions: r.intentions, now: r.updatedAt)
+        self.init(weekStartKey: r.weekStart.key, intentions: r.intentions, brainDump: r.brainDump, now: r.updatedAt)
     }
 }
 

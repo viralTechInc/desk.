@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// Notebook-first day page: date heading, then a two-column sheet — notebook left,
-/// schedule right — on the warm canvas.
+/// Notebook-first day page: date heading, then a two-column sheet — notebook left (about
+/// two thirds: priorities, day brain dump, week brain dump), a narrower schedule right.
 struct DayView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlannerStore.self) private var store
 
     var body: some View {
         let date = appState.selectedDate
+        let weekStart = appState.calendar.startOfWeek(containing: date)
         GeometryReader { geo in
             let stacked = geo.size.width < 900
             VStack(alignment: .leading, spacing: 0) {
@@ -19,15 +20,15 @@ struct DayView: View {
                 Group {
                     if stacked {
                         VStack(spacing: 0) {
-                            NotebookPanel(editor: store.editor(for: date))
-                                .frame(maxHeight: 360)
+                            NotebookPanel(editor: store.editor(for: date), weekEditor: store.weekEditor(for: weekStart))
+                                .frame(maxHeight: 380)
                             Hairline()
                             TimelinePane(date: date)
                         }
                     } else {
                         HStack(spacing: 0) {
-                            NotebookPanel(editor: store.editor(for: date))
-                                .frame(width: (geo.size.width - Theme.margin * 2) * 0.52)
+                            NotebookPanel(editor: store.editor(for: date), weekEditor: store.weekEditor(for: weekStart))
+                                .frame(width: (geo.size.width - Theme.margin * 2) * 0.64)
                             Hairline(vertical: true)
                             TimelinePane(date: date)
                         }
