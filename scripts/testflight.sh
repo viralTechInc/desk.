@@ -2,7 +2,7 @@
 # Archive, sign with your Apple Developer team and upload to TestFlight — no Xcode UI needed.
 #
 # One-time setup (your side):
-#   1. App Store Connect → Apps → "+" → macOS app "Desk", bundle ID com.desk.planner.
+#   1. App Store Connect → Apps → "+" → macOS app "Desk", bundle ID ca.viraltech.desk.
 #   2. App Store Connect → Users and Access → Integrations → App Store Connect API → "+"
 #      (role: App Manager or Developer). Note the Key ID and Issuer ID, download AuthKey_<ID>.p8
 #      and put it in ~/.private_keys/ (Apple's tools look there).

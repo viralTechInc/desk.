@@ -29,10 +29,11 @@ right-click → Open, or allow it under System Settings → Privacy & Security.
 
 ## Giving Desk to someone else (TestFlight)
 
-`scripts/testflight.sh` archives, signs with your Apple Developer team and uploads to TestFlight,
-all from the terminal. The tester installs the TestFlight app from the Mac App Store, accepts
+Easiest: in Xcode, Product → Archive, then Distribute App → TestFlight & App Store (the team
+and automatic signing are set in `project.yml`). `scripts/testflight.sh` does the same from the
+terminal. The tester installs the TestFlight app from the Mac App Store, accepts
 the invitation and gets every new build automatically — no Gatekeeper warning, no zip files.
-One-time setup (an App Store Connect app record for `com.desk.planner`, an App Store Connect
+One-time setup (an App Store Connect app record for `ca.viraltech.desk`, an App Store Connect
 API key, and a git-ignored `.testflight.env` with the team ID and key) is described at the top
 of the script. Each run gets a fresh build number from the UTC time, so uploads never collide.
 `scripts/dist.sh` is the local equivalent: an ad-hoc signed build into `dist/`.
@@ -213,7 +214,7 @@ Key decisions:
 SwiftData store (SQLite) inside the app's sandbox container:
 
 ```
-~/Library/Containers/com.desk.planner/Data/Library/Application Support/Desk/Desk.store
+~/Library/Containers/ca.viraltech.desk/Data/Library/Application Support/Desk/Desk.store
 ```
 
 Settings → Data → *Reveal in Finder* opens it. Preferences are in the container's

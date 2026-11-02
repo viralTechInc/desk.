@@ -1,6 +1,6 @@
 name: Desk
 options:
-  bundleIdPrefix: com.desk
+  bundleIdPrefix: ca.viraltech
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -9,9 +9,10 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    CODE_SIGN_STYLE: Manual
-    CODE_SIGN_IDENTITY: "-"
-    DEVELOPMENT_TEAM: ""
+    # Viral Tech Inc. Automatic signing so Product → Archive → Distribute works from Xcode.
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "Apple Development"
+    DEVELOPMENT_TEAM: 6ADU8TK7HV
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
@@ -23,7 +24,7 @@ targets:
       - path: Desk
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.desk.planner
+        PRODUCT_BUNDLE_IDENTIFIER: ca.viraltech.desk
         PRODUCT_NAME: Desk
         INFOPLIST_FILE: Desk/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: Desk/Resources/Desk.entitlements
@@ -40,7 +41,7 @@ targets:
       - target: Desk
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.desk.planner.tests
+        PRODUCT_BUNDLE_IDENTIFIER: ca.viraltech.desk.tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Desk.app/Contents/MacOS/Desk"
         BUNDLE_LOADER: "$(TEST_HOST)"
@@ -53,7 +54,7 @@ targets:
       - target: Desk
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.desk.planner.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: ca.viraltech.desk.uitests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: Desk
 schemes:

@@ -2,7 +2,7 @@
 # Interaction smoke test against a DEBUG build. Uses a scratch store inside the sandbox container.
 set -e
 cd "$(dirname "$0")/.."
-C=$HOME/Library/Containers/com.desk.planner/Data/tmp
+C=$HOME/Library/Containers/ca.viraltech.desk/Data/tmp
 D=build/desk-debug
 APP=build/DerivedData/Build/Products/Debug/Desk.app
 pkill -x Desk 2>/dev/null || true; sleep 0.5
