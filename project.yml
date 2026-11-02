@@ -1,0 +1,58 @@
+name: Desk
+options:
+  bundleIdPrefix: com.desk
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+targets:
+  Desk:
+    type: application
+    platform: macOS
+    sources:
+      - path: Desk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.desk.planner
+        PRODUCT_NAME: Desk
+        INFOPLIST_FILE: Desk/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Desk/Resources/Desk.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: NO
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+  DeskTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: DeskTests
+    dependencies:
+      - target: Desk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.desk.planner.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Desk.app/Contents/MacOS/Desk"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  Desk:
+    build:
+      targets:
+        Desk: all
+        DeskTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - DeskTests

@@ -1,0 +1,61 @@
+import SwiftUI
+import Observation
+
+enum Appearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
+/// Minimal user preferences, persisted in UserDefaults.
+@MainActor
+@Observable
+final class AppSettings {
+    @ObservationIgnored private let defaults: UserDefaults
+
+    var appearance: Appearance { didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) } }
+    var startHour: Int { didSet { defaults.set(startHour, forKey: Keys.startHour) } }
+    var endHour: Int { didSet { defaults.set(endHour, forKey: Keys.endHour) } }
+    var firstWeekday: Weekday { didSet { defaults.set(firstWeekday.rawValue, forKey: Keys.firstWeekday) } }
+    var showWeeklyIntentions: Bool { didSet { defaults.set(showWeeklyIntentions, forKey: Keys.showIntentions) } }
+    var hourHeight: Double { didSet { defaults.set(hourHeight, forKey: Keys.hourHeight) } }
+
+    enum Keys {
+        static let appearance = "appearance"
+        static let startHour = "visibleStartHour"
+        static let endHour = "visibleEndHour"
+        static let firstWeekday = "firstWeekday"
+        static let showIntentions = "showWeeklyIntentions"
+        static let hourHeight = "hourHeight"
+    }
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        appearance = Appearance(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
+        let s = defaults.object(forKey: Keys.startHour) as? Int ?? 6
+        let e = defaults.object(forKey: Keys.endHour) as? Int ?? 22
+        let clampedStart = min(max(s, 0), 23)
+        startHour = clampedStart
+        endHour = min(max(e, clampedStart + 1), 24)
+        firstWeekday = Weekday(rawValue: defaults.object(forKey: Keys.firstWeekday) as? Int ?? 2) ?? .monday
+        showWeeklyIntentions = defaults.object(forKey: Keys.showIntentions) as? Bool ?? true
+        hourHeight = defaults.object(forKey: Keys.hourHeight) as? Double ?? 64
+    }
+
+    var geometry: TimelineGeometry {
+        TimelineGeometry(startHour: startHour, endHour: endHour, hourHeight: hourHeight)
+    }
+}
