@@ -35,6 +35,8 @@ final class PlannerStore {
 
     /// Incremented on every data change so views re-derive occurrences.
     private(set) var revision = 0
+    /// Incremented when pages are replaced wholesale (import, demo data) so notebook views reload.
+    private(set) var pageGeneration = 0
     private(set) var saveState: SaveState = .idle
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -583,6 +585,7 @@ final class PlannerStore {
         touchedWeeks.removeAll()
         undoManager.removeAllActions()
         revision &+= 1
+        pageGeneration &+= 1
         flush()
     }
 

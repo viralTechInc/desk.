@@ -44,15 +44,29 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Desk.app/Contents/MacOS/Desk"
         BUNDLE_LOADER: "$(TEST_HOST)"
+  DeskUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: DeskUITests
+    dependencies:
+      - target: Desk
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.desk.planner.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Desk
 schemes:
   Desk:
     build:
       targets:
         Desk: all
         DeskTests: [test]
+        DeskUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - DeskTests
+        - DeskUITests

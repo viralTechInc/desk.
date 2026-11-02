@@ -1,0 +1,24 @@
+// Posts debug commands to a running DEBUG build of Desk.
+// Build once:  swiftc -O scripts/desk-debug.swift -o build/desk-debug
+// Usage:       build/desk-debug screenshot /tmp/shot.png
+//              build/desk-debug action week | day | today | tomorrow | next | prev | addBlock | demo | help | escape | undo | redo | quit
+//              build/desk-debug date 2026-11-02
+//              build/desk-debug resize 1440 900
+//              build/desk-debug type "some text"
+//              build/desk-debug appearance dark|light|system
+import Foundation
+let a = CommandLine.arguments
+guard a.count >= 2 else { print("usage: desk-debug <cmd> [args]"); exit(1) }
+var info: [String: String] = ["cmd": a[1]]
+switch a[1] {
+case "screenshot": info["path"] = a[2]
+case "action": info["name"] = a[2]
+case "date", "type", "appearance": info["value"] = a[2]
+case "resize": info["w"] = a[2]; info["h"] = a[3]
+case "click": info["x"] = a[2]; info["y"] = a[3]
+case "key": info["value"] = a[2]; if a.count > 3 { info["cmd"] = a[3] }
+case "dump": info["path"] = a[2]
+default: break
+}
+DistributedNotificationCenter.default().postNotificationName(
+    Notification.Name("com.desk.planner.debug"), object: nil, userInfo: info, deliverImmediately: true)

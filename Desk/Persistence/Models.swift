@@ -169,6 +169,19 @@ enum DeskSchema {
     /// Default on-disk location: ~/Library/Application Support/Desk/Desk.store
     /// (inside the app's sandbox container when sandboxed).
     static func storeURL() throws -> URL {
+        // Developer overrides so test runs never touch the real planner.
+        // DESK_SCRATCH_STORE=<name> → a throwaway store in the app's own temp directory
+        // (works from sandboxed UI test runners); DESK_STORE_PATH=<path> → an explicit file.
+        if let name = ProcessInfo.processInfo.environment["DESK_SCRATCH_STORE"], !name.isEmpty {
+            let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("scratch-\(name)", isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir.appendingPathComponent("Desk.store")
+        }
+        if let override = ProcessInfo.processInfo.environment["DESK_STORE_PATH"], !override.isEmpty {
+            let url = URL(fileURLWithPath: override)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            return url
+        }
         let base = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
                                                appropriateFor: nil, create: true)
         let dir = base.appendingPathComponent("Desk", isDirectory: true)

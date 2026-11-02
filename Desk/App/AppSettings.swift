@@ -52,10 +52,22 @@ final class AppSettings {
         endHour = min(max(e, clampedStart + 1), 24)
         firstWeekday = Weekday(rawValue: defaults.object(forKey: Keys.firstWeekday) as? Int ?? 2) ?? .monday
         showWeeklyIntentions = defaults.object(forKey: Keys.showIntentions) as? Bool ?? true
-        hourHeight = defaults.object(forKey: Keys.hourHeight) as? Double ?? 64
+        hourHeight = defaults.object(forKey: Keys.hourHeight) as? Double ?? 0
     }
 
-    var geometry: TimelineGeometry {
-        TimelineGeometry(startHour: startHour, endHour: endHour, hourHeight: hourHeight)
+    /// Minimum hour height when fitting; below this the grid scrolls instead.
+    static let minimumHourHeight: CGFloat = 22
+
+    /// `hourHeight == 0` means "fit the visible hours into the available height" so the
+    /// whole day is on screen without scrolling.
+    func geometry(fitting availableHeight: CGFloat) -> TimelineGeometry {
+        let hours = CGFloat(max(endHour - startHour, 1))
+        let height: CGFloat
+        if hourHeight > 0 {
+            height = hourHeight
+        } else {
+            height = max(Self.minimumHourHeight, (availableHeight / hours).rounded(.down))
+        }
+        return TimelineGeometry(startHour: startHour, endHour: endHour, hourHeight: height)
     }
 }
