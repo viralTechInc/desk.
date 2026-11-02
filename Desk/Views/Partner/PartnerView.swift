@@ -62,13 +62,10 @@ struct PartnerDayView: View {
         GeometryReader { geo in
             let stacked = geo.size.width < 900
             VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 4) {
-                    DateHeading(date: date)
-                    PartnerBadge(partner: partner)
-                }
-                .padding(.horizontal, Theme.margin)
-                .padding(.top, 18)
-                .padding(.bottom, 14)
+                PageHeader(bottomPadding: 4) { DateHeading(date: date) }
+                PartnerBadge(partner: partner)
+                    .padding(.horizontal, Theme.margin)
+                    .padding(.bottom, 14)
 
                 Group {
                     if stacked {
@@ -92,7 +89,7 @@ struct PartnerDayView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
                 .padding(.horizontal, Theme.margin)
-                .padding(.bottom, Theme.padding)
+                .padding(.bottom, Theme.pageBottom)
             }
         }
     }
@@ -107,21 +104,10 @@ struct PartnerWeekView: View {
         let days = appState.weekDays
         let intentions = partner.week(for: days[0])?.intentions.filter { !$0.isEmpty } ?? []
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 14) {
-                    Text(appState.calendar.weekRangeString(containing: appState.selectedDate))
-                        .font(Theme.weekHeading)
-                        .foregroundStyle(Theme.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    if days.contains(appState.today) {
-                        Text("This week").font(Theme.caption).foregroundStyle(Theme.inkMuted)
-                    }
-                }
-                PartnerBadge(partner: partner)
-            }
-            .padding(.horizontal, Theme.margin)
-            .padding(.top, 18)
-            .padding(.bottom, 14)
+            PageHeader(bottomPadding: 4) { WeekHeading(days: days) }
+            PartnerBadge(partner: partner)
+                .padding(.horizontal, Theme.margin)
+                .padding(.bottom, 14)
 
             VStack(spacing: 0) {
                 if settings.showWeeklyIntentions, !intentions.isEmpty {
@@ -142,7 +128,7 @@ struct PartnerWeekView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
             .padding(.horizontal, Theme.margin)
-            .padding(.bottom, Theme.padding)
+            .padding(.bottom, Theme.pageBottom)
         }
     }
 }

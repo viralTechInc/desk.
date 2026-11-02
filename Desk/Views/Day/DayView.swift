@@ -12,10 +12,7 @@ struct DayView: View {
         GeometryReader { geo in
             let stacked = geo.size.width < 900
             VStack(alignment: .leading, spacing: 0) {
-                DateHeading(date: date)
-                    .padding(.horizontal, Theme.margin)
-                    .padding(.top, 18)
-                    .padding(.bottom, 14)
+                PageHeader { DateHeading(date: date) }
 
                 Group {
                     if stacked {
@@ -39,7 +36,7 @@ struct DayView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
                 .padding(.horizontal, Theme.margin)
-                .padding(.bottom, Theme.padding)
+                .padding(.bottom, Theme.pageBottom)
             }
         }
     }

@@ -37,7 +37,12 @@ enum Theme {
     static let padding: CGFloat = 24
     static let radius: CGFloat = 6
     static let gutterWidth: CGFloat = 52
-    static let toolbarHeight: CGFloat = 62
+    /// Above the page heading. The hidden title bar already keeps a 28pt safe area for the
+    /// window controls, so this only adds breathing room.
+    static let headerTop: CGFloat = 12
+    static let footerHeight: CGFloat = 40
+    /// Gap between a page's card and the footer.
+    static let pageBottom: CGFloat = 8
 
     private static func dynamic(light: UInt32, dark: UInt32) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in

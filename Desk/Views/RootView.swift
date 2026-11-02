@@ -10,8 +10,6 @@ struct RootView: View {
     var body: some View {
         @Bindable var appState = appState
         VStack(spacing: 0) {
-            ToolbarView()
-            Hairline()
             Group {
                 if appState.viewingPartnerID != nil {
                     PartnerView()
@@ -23,6 +21,7 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            FooterBar()
         }
         .background(Theme.canvas)
         .preferredColorScheme(settings.appearance.colorScheme)
@@ -136,33 +135,21 @@ private struct RootLifecycle: ViewModifier {
     }
 }
 
-struct ToolbarView: View {
+/// Heading row of every page: the title (and subtitle) with the previous/next arrows beside
+/// it, and the Day / Week switcher — plus the desk switcher once a partner shares — flush right.
+/// Sits under the hidden title bar, so it keeps clear of the window controls.
+struct PageHeader<Title: View>: View {
     @Environment(AppState.self) private var appState
-    @Environment(PlannerStore.self) private var store
-    @Environment(AppSettings.self) private var settings
     @Environment(SharingService.self) private var sharing
-    @Environment(\.colorScheme) private var scheme
+    var bottomPadding: CGFloat = 14
+    @ViewBuilder let title: Title
 
     var body: some View {
         @Bindable var appState = appState
         let _ = sharing.revision
-        HStack(spacing: 12) {
-            Text("desk.")
-                .font(Theme.wordmark)
-                .foregroundStyle(Theme.ink)
-                .padding(.trailing, 8)
-                .accessibilityHidden(true)
-
-            ViewModeSwitcher(mode: Binding(get: { appState.viewMode }, set: { appState.show($0) }))
-
-            if !sharing.partners.isEmpty {
-                DeskSwitcher(partners: sharing.partners,
-                             selection: Binding(get: { appState.viewingPartnerID }, set: { appState.showPartner($0) }))
-            }
-
-            Spacer(minLength: 16)
-
-            HStack(spacing: 4) {
+        HStack(alignment: .center, spacing: 14) {
+            title
+            HStack(spacing: 2) {
                 Button { appState.goPrevious() } label: { Image(systemName: "chevron.left") }
                     .buttonStyle(IconButtonStyle())
                     .help(appState.viewMode == .day ? "Previous day (J)" : "Previous week (J)")
@@ -172,6 +159,34 @@ struct ToolbarView: View {
                     .help(appState.viewMode == .day ? "Next day (K)" : "Next week (K)")
                     .accessibilityLabel(appState.viewMode == .day ? "Next day" : "Next week")
             }
+
+            Spacer(minLength: 16)
+
+            if !sharing.partners.isEmpty {
+                DeskSwitcher(partners: sharing.partners,
+                             selection: Binding(get: { appState.viewingPartnerID }, set: { appState.showPartner($0) }))
+            }
+            ViewModeSwitcher(mode: Binding(get: { appState.viewMode }, set: { appState.show($0) }))
+        }
+        .padding(.horizontal, Theme.margin)
+        .padding(.top, Theme.headerTop)
+        .padding(.bottom, bottomPadding)
+    }
+}
+
+/// Thin strip under the page: the wordmark bottom-left, save state and the light/dark switch
+/// bottom-right. Everything that used to live in a toolbar above the page, out of the way.
+struct FooterBar: View {
+    @Environment(PlannerStore.self) private var store
+    @Environment(AppSettings.self) private var settings
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("desk.")
+                .font(Theme.wordmark)
+                .foregroundStyle(Theme.ink)
+                .accessibilityHidden(true)
 
             Spacer(minLength: 16)
 
@@ -186,9 +201,8 @@ struct ToolbarView: View {
             .accessibilityLabel(scheme == .dark ? "Switch to light mode" : "Switch to dark mode")
             .accessibilityIdentifier("toolbar.appearance")
         }
-        .padding(.leading, 84) // room for the window controls
-        .padding(.trailing, 20)
-        .frame(height: Theme.toolbarHeight)
+        .padding(.horizontal, Theme.margin)
+        .frame(height: Theme.footerHeight)
         .background(Theme.canvas)
     }
 }

@@ -9,19 +9,7 @@ struct WeekView: View {
     var body: some View {
         let days = appState.weekDays
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Text(appState.calendar.weekRangeString(containing: appState.selectedDate))
-                    .font(Theme.weekHeading)
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("weekHeading")
-                if days.contains(appState.today) {
-                    Text("This week").font(Theme.caption).foregroundStyle(Theme.inkMuted)
-                }
-            }
-            .padding(.horizontal, Theme.margin)
-            .padding(.top, 18)
-            .padding(.bottom, 14)
+            PageHeader { WeekHeading(days: days) }
 
             VStack(spacing: 0) {
                 if settings.showWeeklyIntentions {
@@ -35,7 +23,26 @@ struct WeekView: View {
             .clipShape(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Theme.radius, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
             .padding(.horizontal, Theme.margin)
-            .padding(.bottom, Theme.padding)
+            .padding(.bottom, Theme.pageBottom)
+        }
+    }
+}
+
+/// "November 2 – 8, 2026" with a quiet "This week" beside it when today is in range.
+struct WeekHeading: View {
+    @Environment(AppState.self) private var appState
+    let days: [LocalDate]
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            Text(appState.calendar.weekRangeString(containing: appState.selectedDate))
+                .font(Theme.weekHeading)
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("weekHeading")
+            if days.contains(appState.today) {
+                Text("This week").font(Theme.caption).foregroundStyle(Theme.inkMuted)
+            }
         }
     }
 }
