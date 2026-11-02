@@ -40,6 +40,14 @@ final class AppState {
     var showShortcutHelp = false
     /// Which Settings tab to show when the window opens ("general" or "calendars").
     var settingsTab = "general"
+    /// Bumped to ask the root view to open the Settings window (SwiftUI's `openSettings`
+    /// action is only reachable from a view's environment).
+    private(set) var settingsRequest = 0
+
+    func openSettings(tab: String? = nil) {
+        if let tab { settingsTab = tab }
+        settingsRequest &+= 1
+    }
     var alert: AlertContent?
     var pendingImport: BackupDocument?
     var confirmDemoData = false

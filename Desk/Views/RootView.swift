@@ -91,9 +91,14 @@ private struct RootLifecycle: ViewModifier {
     @Environment(AppState.self) private var appState
     @Environment(PlannerStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(\.openSettings) private var openSettings
 
     func body(content: Content) -> some View {
         content
+            .onChange(of: appState.settingsRequest) {
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+            }
             .onChange(of: appState.selectedDate) { store.flush() }
             .onChange(of: appState.viewMode) { store.flush() }
             .onChange(of: settings.firstWeekday, initial: true) { applyCalendar() }

@@ -40,11 +40,8 @@ struct DeskCommands: Commands {
                 .keyboardShortcut("2", modifiers: .command)
         }
         CommandMenu("Calendars") {
-            Button("Choose Calendars…") {
-                model.appState.settingsTab = "calendars"
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-            }
-            Button("Refresh Calendars") { model.calendarService.refreshCalendars() }
+            Button("Choose Calendars…") { model.appState.openSettings(tab: "calendars") }
+            Button("Refresh Calendars") { refreshCalendars() }
                 .keyboardShortcut("r", modifiers: .command)
         }
         CommandMenu("Notebook") {
@@ -56,6 +53,20 @@ struct DeskCommands: Commands {
         CommandGroup(replacing: .help) {
             Button("Keyboard Shortcuts") { model.appState.showShortcutHelp.toggle() }
                 .keyboardShortcut("/", modifiers: .command)
+        }
+    }
+
+    /// Refresh is only meaningful once Desk may read the calendar database. Before that,
+    /// the menu item does the useful thing instead of silently doing nothing.
+    private func refreshCalendars() {
+        let service = model.calendarService
+        switch service.access {
+        case .authorized:
+            service.refreshCalendars()
+        case .notDetermined:
+            Task { await service.requestAccess() }
+        case .denied, .restricted, .writeOnly:
+            model.appState.openSettings(tab: "calendars")
         }
     }
 }
