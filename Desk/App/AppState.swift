@@ -38,6 +38,8 @@ final class AppState {
     var scopePrompt: ScopePrompt?
     var seriesDeletion: EventOccurrence?
     var showShortcutHelp = false
+    /// Which Settings tab to show when the window opens ("general" or "calendars").
+    var settingsTab = "general"
     var alert: AlertContent?
     var pendingImport: BackupDocument?
     var confirmDemoData = false

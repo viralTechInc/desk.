@@ -30,5 +30,9 @@
 	<string></string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Desk shows events from your Mac's calendars (Google, iCloud, Exchange…) next to your time blocks. It only reads them and never changes them.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Desk shows events from your Mac's calendars next to your time blocks. It only reads them and never changes them.</string>
 </dict>
 </plist>

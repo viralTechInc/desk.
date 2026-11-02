@@ -9,6 +9,8 @@ final class AppModel {
     let appState: AppState
     let actions: AppActions
     let shortcuts: ShortcutMonitor
+    let calendarService: CalendarService
+    let feed: ScheduleFeed
     let startupError: String?
 
     init() {
@@ -30,6 +32,8 @@ final class AppModel {
         self.appState = appState
         self.actions = actions
         self.shortcuts = ShortcutMonitor(appState: appState, actions: actions)
+        self.calendarService = CalendarService()
+        self.feed = ScheduleFeed(store: store, calendarService: calendarService, appState: appState)
         self.startupError = startupError
         shortcuts.install()
         #if DEBUG
@@ -65,6 +69,7 @@ struct DeskApp: App {
                 .environment(model.store)
                 .environment(model.settings)
                 .environment(model.actions)
+                .environment(model.calendarService)
                 .frame(minWidth: 760, minHeight: 540)
                 .onAppear {
                     if let err = model.startupError {
@@ -83,7 +88,22 @@ struct DeskApp: App {
                 .environment(model.actions)
                 .environment(model.store)
                 .environment(model.appState)
+                .environment(model.calendarService)
         }
+
+        MenuBarExtra {
+            MenuBarContent()
+                .environment(model.feed)
+                .environment(model.appState)
+                .environment(model.store)
+                .environment(model.calendarService)
+        } label: {
+            MenuBarLabel()
+                .environment(model.feed)
+                .environment(model.store)
+                .environment(model.calendarService)
+        }
+        .menuBarExtraStyle(.window)
     }
 }
 

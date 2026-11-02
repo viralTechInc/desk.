@@ -37,6 +37,19 @@ enum DebugHooks {
             case "undo": model.actions.undo()
             case "redo": model.actions.redo()
             case "flush": model.store.flush()
+            case "settings":
+                if let tab = info["value"] { state.settingsTab = tab }
+                NSApp.activate(ignoringOtherApps: true)
+                let handled = NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    || NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+                DebugTrace.log("settings handled=\(handled) windows=\(NSApp.windows.map { "\($0.title):\($0.isVisible):\(Int($0.frame.width))" })")
+            case "previewCalendars":
+                // Hosts the Calendars settings pane in a plain window for screenshots.
+                let host = NSHostingController(rootView: CalendarSettingsView()
+                    .environment(model.calendarService).environment(state).frame(width: 520, height: 480))
+                let w = NSWindow(contentViewController: host)
+                w.title = "Calendars preview"
+                w.makeKeyAndOrderFront(nil)
             case "quit": NSApp.terminate(nil)
             default: break
             }

@@ -39,6 +39,14 @@ struct DeskCommands: Commands {
             Button("Week") { model.appState.show(.week) }
                 .keyboardShortcut("2", modifiers: .command)
         }
+        CommandMenu("Calendars") {
+            Button("Choose Calendars…") {
+                model.appState.settingsTab = "calendars"
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            }
+            Button("Refresh Calendars") { model.calendarService.refreshCalendars() }
+                .keyboardShortcut("r", modifiers: .command)
+        }
         CommandMenu("Notebook") {
             Button("Focus Brain Dump") { model.appState.requestFocus(.brainDump) }
                 .keyboardShortcut("b", modifiers: [.command, .option])

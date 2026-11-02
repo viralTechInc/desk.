@@ -10,6 +10,7 @@ struct TimelineGrid: View {
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var settings
     @Environment(AppActions.self) private var actions
+    @Environment(CalendarService.self) private var calendarService
 
     @State private var drag: DragState?
 
@@ -21,8 +22,12 @@ struct TimelineGrid: View {
 
     var body: some View {
         let _ = store.revision
+        let _ = calendarService.revision
         let range = days.first!...days.last!
         let events = store.occurrences(in: range)
+        let external = calendarService.events(in: range, calendar: appState.calendar)
+        let entries = ScheduleMerger.timedEntries(blocks: events, external: external)
+        let allDay = ScheduleMerger.allDay(external)
         let hasToday = days.contains(appState.today)
 
         VStack(spacing: 0) {
@@ -30,16 +35,20 @@ struct TimelineGrid: View {
                 WeekHeaderRow(days: days)
                 Hairline()
             }
+            if !allDay.isEmpty {
+                AllDayStrip(days: days, events: allDay)
+                Hairline()
+            }
             GeometryReader { outer in
                 let available = outer.size.height - Self.topInset - Self.bottomInset
                 let base = settings.geometry(fitting: available)
-                let expanded = base.expanded(toInclude: events)
+                let expanded = base.expanded(toInclude: entries)
                 // Re-fit after expanding so out-of-range events still keep the day on one screen.
                 let geometry = expanded == base ? base
                     : TimelineGeometry(startHour: expanded.startHour, endHour: expanded.endHour,
                                        hourHeight: settings.hourHeight > 0 ? settings.hourHeight
                                         : max(AppSettings.minimumHourHeight, (available / CGFloat(expanded.endHour - expanded.startHour)).rounded(.down)))
-                timeline(geometry: geometry, hasToday: hasToday, events: events,
+                timeline(geometry: geometry, hasToday: hasToday, entries: entries,
                          overflows: geometry.totalHeight + Self.topInset + Self.bottomInset > outer.size.height + 1)
             }
         }
@@ -49,7 +58,7 @@ struct TimelineGrid: View {
     static let bottomInset: CGFloat = 14
 
     @ViewBuilder
-    private func timeline(geometry: TimelineGeometry, hasToday: Bool, events: [EventOccurrence], overflows: Bool) -> some View {
+    private func timeline(geometry: TimelineGeometry, hasToday: Bool, entries: [ScheduleEntry], overflows: Bool) -> some View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     HStack(alignment: .top, spacing: 0) {
@@ -64,7 +73,7 @@ struct TimelineGrid: View {
                                         DayColumn(
                                             day: day, index: index, columnWidth: columnWidth, columnCount: days.count,
                                             geometry: geometry,
-                                            events: displayedEvents(events, dayIndex: index),
+                                            entries: displayedEntries(entries, dayIndex: index),
                                             draggingID: draggingID,
                                             drag: $drag,
                                             onCreate: { start, end in actions.createBlock(date: day, start: start, end: end) },
@@ -108,7 +117,7 @@ struct TimelineGrid: View {
                 .onChange(of: days) { if overflows { scrollToStart(proxy, geometry: geometry) } }
             }
             .overlay(alignment: .top) {
-                if events.isEmpty, drag == nil, days.count == 1 {
+                if entries.isEmpty, drag == nil, days.count == 1 {
                     Text("Drag on the grid to block time, or press A")
                         .font(Theme.caption)
                         .foregroundStyle(Theme.inkFaint)
@@ -127,11 +136,13 @@ struct TimelineGrid: View {
         }
     }
 
-    /// Events for one column, with an in-progress resize applied so the block grows live.
-    private func displayedEvents(_ events: [EventOccurrence], dayIndex: Int) -> [EventOccurrence] {
-        var result = events.filter { $0.date == days[dayIndex] }
+    /// Entries for one column, with an in-progress resize applied so the block grows live.
+    private func displayedEntries(_ entries: [ScheduleEntry], dayIndex: Int) -> [ScheduleEntry] {
+        var result = entries.filter { $0.date == days[dayIndex] }
         if case .resize(let occ, let end) = drag, let i = result.firstIndex(where: { $0.id == occ.id }) {
-            result[i].endMinutes = end
+            var resized = occ
+            resized.endMinutes = end
+            result[i] = .block(resized)
         }
         return result
     }
@@ -159,7 +170,7 @@ private struct DayColumn: View {
     let columnWidth: CGFloat
     let columnCount: Int
     let geometry: TimelineGeometry
-    let events: [EventOccurrence]
+    let entries: [ScheduleEntry]
     let draggingID: String?
     @Binding var drag: TimelineGrid.DragState?
     let onCreate: (Int, Int) -> Void
@@ -169,9 +180,11 @@ private struct DayColumn: View {
     @Environment(AppState.self) private var appState
     @Environment(AppActions.self) private var actions
     @Environment(PlannerStore.self) private var store
+    @Environment(CalendarService.self) private var calendarService
+    @State private var selectedExternalID: String?
 
     var body: some View {
-        let laidOut = OverlapLayout.layout(events)
+        let laidOut = OverlapLayout.layout(entries)
         ZStack(alignment: .topLeading) {
             Color.clear
                 .contentShape(Rectangle())
@@ -186,7 +199,12 @@ private struct DayColumn: View {
                 .accessibilityIdentifier("timeline.column.\(index)")
 
             ForEach(laidOut) { item in
-                blockView(item)
+                switch item.item {
+                case .block(let occ):
+                    blockView(occ, item)
+                case .external(let ev):
+                    externalView(ev, item)
+                }
             }
 
             if case .create(let d, let anchor, let current) = drag, d == index {
@@ -202,8 +220,34 @@ private struct DayColumn: View {
     }
 
     @ViewBuilder
-    private func blockView(_ item: LaidOutEvent) -> some View {
-        let occ = item.event
+    private func externalView(_ ev: ExternalEvent, _ item: LaidOutItem<ScheduleEntry>) -> some View {
+        let inner = columnWidth - 6
+        let width = max(inner * item.widthFraction - (item.columnCount > 1 ? 2 : 0), 14)
+        let x = 3 + inner * item.xFraction
+        let height = max(geometry.height(forDuration: ev.durationMinutes) - 2, 16)
+        let isSelected = selectedExternalID == ev.id
+        ExternalEventView(event: ev, isSelected: isSelected, compact: height < 34)
+            .frame(width: width, height: height)
+            .contentShape(Rectangle())
+            .onTapGesture { selectedExternalID = ev.id }
+            .contextMenu {
+                Button("Open in Calendar") { calendarService.openInCalendar(ev) }
+            }
+            .popover(isPresented: Binding(get: { selectedExternalID == ev.id }, set: { if !$0 { selectedExternalID = nil } }),
+                     arrowEdge: columnCount > 1 && index >= columnCount - 2 ? .leading : .trailing) {
+                ExternalEventPopover(event: ev)
+            }
+            .offset(x: x, y: geometry.y(forMinutes: ev.startMinutes) + 1)
+            .zIndex(isSelected ? 2 : 0.5)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(ev.displayTitle), \(TimeFormat.range(ev.startMinutes, ev.endMinutes)), \(ev.calendarTitle) calendar")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("external.\(ev.displayTitle)")
+            .accessibilityAction(named: "Open in Calendar") { calendarService.openInCalendar(ev) }
+    }
+
+    @ViewBuilder
+    private func blockView(_ occ: EventOccurrence, _ item: LaidOutItem<ScheduleEntry>) -> some View {
         let inner = columnWidth - 6
         let width = max(inner * item.widthFraction - (item.columnCount > 1 ? 2 : 0), 14)
         let x = 3 + inner * item.xFraction

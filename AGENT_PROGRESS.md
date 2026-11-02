@@ -13,6 +13,25 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
 - [x] Phase 3 — Week screen: seven columns, drag-create / move across days / resize, overlap columns, scope prompt for routines, intentions row
 - [x] Phase 4 — letter shortcuts + menus, context menus, settings, shortcut help, backup export/import, demo data (opt-in), app icon, Release build in `dist/`
 
+## Calendar integration (EventKit) — 2026-11-01, second request
+- `Desk/Calendar/CalendarService.swift`: `EKEventStore`, `requestFullAccessToEvents()`, authorization states
+  (not determined / denied / restricted / write-only / authorized), calendars grouped by `EKSource`, per-calendar
+  enable/disable persisted in UserDefaults (`calendar.disabledIDs`; new calendars are on by default), observes
+  `.EKEventStoreChanged`, app activation and `.NSSystemTimeZoneDidChange`. Read-only: never creates/edits/deletes.
+- `ExternalEventSplitter` turns absolute start/end into per-day slices (multi-day, all-day, midnight end, DST);
+  `ScheduleMerger` merges blocks + external events, filters by enabled calendars and computes the menu-bar
+  "current / next three / remaining / countdown" with meetings winning over overlapping blocks.
+- Timeline: `OverlapLayout` is generic over `TimelineItem`; `ScheduleEntry = .block | .external`. External events
+  render dashed/outlined in the calendar colour with the calendar name, click → details popover + "Open in
+  Calendar" (`ical://ekevent/<id>`), all-day events in a strip above the grid (Day and Week).
+- Settings → Calendars tab (permission request, denied/restricted guidance with deep links to Privacy & Security and
+  Internet Accounts, grouped checkboxes, Show/Hide all). Calendars menu: Choose Calendars…, Refresh (⌘R).
+- Menu bar companion: `MenuBarExtra` (window style) fed by `ScheduleFeed` (refreshes on store/calendar changes and
+  every 30 s): current item with time left, next items with countdown, Open Desk / Quit.
+- Entitlement `com.apple.security.personal-information.calendars`; `NSCalendarsFullAccessUsageDescription`.
+- Not verifiable by the agent: granting the macOS calendar permission is a user action, so rendering of real
+  Google/iCloud events was not observed in a screenshot. Logic is covered by 11 new unit tests (42 total).
+
 ## Owner feedback applied
 - "Need to see it without scrolling down": the timeline fits the visible hours (06:00–22:00) to the window height by default
   (`AppSettings.hourHeight == 0` = fit; 22 pt/hour floor before it scrolls). Fixed heights remain available in Settings.
@@ -39,7 +58,8 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
 
 ## Test results (final run, 2026-11-01 22:50)
 `xcodebuild -project Desk.xcodeproj -scheme Desk -destination 'platform=macOS' test`
-- DeskTests: 31 tests in 4 suites — all passed (LocalDate/DeskCalendar, RecurrenceEngine, OverlapLayout, PlannerStore).
+- DeskTests: 42 tests in 5 suites — all passed (LocalDate/DeskCalendar, RecurrenceEngine, OverlapLayout, PlannerStore,
+  External events & schedule merging).
 - DeskUITests: 5 tests — all passed (drag-create → move → resize → undo×2; letter shortcuts vs. typing; notes/priorities survive
   rapid navigation and relaunch; block visible in Week and Day; weekly routine + "This Occurrence" scope prompt).
 - Release build: `dist/Desk.app` (ad-hoc signed, `codesign --verify` ok), zipped as `dist/Desk.zip`.

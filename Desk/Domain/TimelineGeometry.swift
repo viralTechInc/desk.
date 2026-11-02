@@ -41,7 +41,7 @@ struct TimelineGeometry: Equatable, Sendable {
     }
 
     /// Expands the rendered range so the given events are never hidden.
-    func expanded(toInclude events: [EventOccurrence]) -> TimelineGeometry {
+    func expanded<Item: TimelineItem>(toInclude events: [Item]) -> TimelineGeometry {
         var g = self
         for e in events {
             g.startHour = min(g.startHour, e.startMinutes / 60)
@@ -53,38 +53,44 @@ struct TimelineGeometry: Equatable, Sendable {
     }
 }
 
-/// Side-by-side layout for overlapping events within a single day column.
-struct LaidOutEvent: Identifiable, Equatable {
-    let event: EventOccurrence
+/// Side-by-side layout for overlapping items within a single day column.
+struct LaidOutItem<Item: TimelineItem>: Identifiable, Equatable {
+    let item: Item
     /// Zero-based column index within the overlap cluster.
     let column: Int
     /// Number of columns in the cluster.
     let columnCount: Int
-    var id: String { event.id }
+    var id: String { item.id }
 
-    /// Horizontal fraction of the column this event occupies.
+    /// Horizontal fraction of the column this item occupies.
     var xFraction: CGFloat { CGFloat(column) / CGFloat(columnCount) }
     var widthFraction: CGFloat { 1 / CGFloat(columnCount) }
 }
 
+typealias LaidOutEvent = LaidOutItem<EventOccurrence>
+
+extension LaidOutItem where Item == EventOccurrence {
+    var event: EventOccurrence { item }
+}
+
 enum OverlapLayout {
-    /// Classic interval-graph column packing. Events that transitively overlap form a
+    /// Classic interval-graph column packing. Items that transitively overlap form a
     /// cluster; each cluster is split into the minimum number of columns greedily.
-    static func layout(_ events: [EventOccurrence]) -> [LaidOutEvent] {
-        let sorted = events.sorted { a, b in
+    static func layout<Item: TimelineItem>(_ items: [Item]) -> [LaidOutItem<Item>] {
+        let sorted = items.sorted { a, b in
             if a.startMinutes != b.startMinutes { return a.startMinutes < b.startMinutes }
             if a.endMinutes != b.endMinutes { return a.endMinutes > b.endMinutes }
             return a.id < b.id
         }
-        var result: [LaidOutEvent] = []
-        var cluster: [(EventOccurrence, Int)] = []
+        var result: [LaidOutItem<Item>] = []
+        var cluster: [(Item, Int)] = []
         var columnEnds: [Int] = []
         var clusterEnd = Int.min
 
         func flush() {
             let count = max(columnEnds.count, 1)
             for (e, col) in cluster {
-                result.append(LaidOutEvent(event: e, column: col, columnCount: count))
+                result.append(LaidOutItem(item: e, column: col, columnCount: count))
             }
             cluster.removeAll()
             columnEnds.removeAll()

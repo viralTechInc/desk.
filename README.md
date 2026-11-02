@@ -47,9 +47,11 @@ in Xcode and press ⌘R. Signing is ad-hoc (`CODE_SIGN_IDENTITY: "-"`); set your
 xcodebuild -project Desk.xcodeproj -scheme Desk -destination 'platform=macOS' test
 ```
 
-- `DeskTests` — 31 unit tests: date arithmetic across DST (America/Toronto) and year
+- `DeskTests` — 42 unit tests: date arithmetic across DST (America/Toronto) and year
   boundaries, weekly recurrence expansion, exceptions (cancel / change / move), series edits
-  after exceptions, store transactions with undo/redo, overlap layout, backup round trip.
+  after exceptions, store transactions with undo/redo, overlap layout, backup round trip,
+  external-event slicing (multi-day, all-day, midnight end, DST), calendar filtering, mixed
+  overlap layout, and menu-bar current/next selection.
 - `DeskUITests` — 5 interaction tests driven by real system events: drag-to-create, move,
   resize and undo; letter shortcuts never typing into notes; notes and priorities surviving
   rapid navigation and relaunch; a block created in one view showing in the other; weekly
@@ -87,6 +89,41 @@ Letter shortcuts only fire when you are not typing in a text field. The menu bar
 - **Settings (⌘,)**: appearance, hour height (fit to window / fixed), visible hours, first day of
   week, weekly intentions, data location, backup.
 
+## Calendars from your Mac (Google, iCloud, Exchange…)
+
+Desk reads the calendars already configured on your Mac through Apple's EventKit and shows
+their events next to your blocks in Day, Week and the menu bar. Nothing is written back, no
+Google Cloud project, no OAuth, no backend: the OS keeps the accounts in sync and Desk observes
+the local calendar database.
+
+Setup:
+
+1. **System Settings → Internet Accounts** → add your Google (or iCloud/Exchange) account and
+   turn on *Calendars* for it. Repeat for each account.
+2. In Desk, open **Settings (⌘,) → Calendars** and click **Allow Calendar Access…**. macOS asks
+   once; choose *Allow Full Access*. (Desk only reads events, but macOS 14's full-access level
+   is what exposes event details to apps.)
+3. Tick the calendars you want to see. Everything is on by default; new calendars appear
+   automatically; selections are remembered on this Mac.
+
+Behaviour:
+
+- Events show in the calendar's own colour with a dashed outline so they read as "from
+  outside"; click one for details and *Open in Calendar*. All-day events sit in a strip above
+  the grid. Multi-day events are sliced per day. Events without a title (private/busy-only
+  calendars) show as "Busy".
+- Changes made in Calendar, on your phone or on the web appear while Desk is running (EventKit
+  change notifications, plus a refresh whenever Desk becomes active or you navigate). Removing
+  an account in System Settings removes its events.
+- The **menu bar** item shows what's happening now and how long is left, or the next item with a
+  countdown (within two hours). Its popover lists the current item and the next three. When a
+  meeting overlaps a Desk work block, the meeting is shown first; the block is untouched.
+- If access was declined, Settings → Calendars explains and links to *Privacy & Security →
+  Calendars*. If there are no calendars, it links to *Internet Accounts*.
+
+Note for builds from source: the app is ad-hoc signed, so macOS treats each rebuild as a new
+app for privacy purposes and may ask for calendar access again.
+
 ## Architecture
 
 ```
@@ -101,8 +138,12 @@ Desk/
                OccurrenceOverride), Records (Codable mirrors used for undo snapshots and backups),
                PlannerStore (all reads/writes; transactional mutations with snapshot undo;
                debounced notebook saves), SeedData (opt-in demo content)
+  Calendar/    CalendarService (EventKit, read-only; permissions, calendar list, enabled set,
+               change observation), ExternalEvent + ExternalEventSplitter (per-day slices),
+               ScheduleEntry (block | external), ScheduleMerger (pure merge + "now/next" logic)
   Views/       RootView + toolbar, Day (DayView, NotebookPanel, PlainTextView), Week,
-               Timeline (TimelineGrid, TimeBlockView), Editor (BlockEditorView), Settings, Help
+               Timeline (TimelineGrid, TimeBlockView, ExternalEventView, AllDayStrip),
+               Editor (BlockEditorView), Settings (General, Calendars), Help, MenuBar
 DeskTests/     unit tests          DeskUITests/   XCUITest interaction tests
 scripts/       make-icon.swift, desk-debug.swift (drives DEBUG builds for screenshots), shot.swift
 ```
@@ -139,5 +180,5 @@ covers the container.
 - Recurrence is weekly-on-selected-weekdays only (no monthly/yearly/interval rules); routines
   have no end date in the UI.
 - Blocks live within one day (no overnight blocks); the timeline shows 00:00–24:00 at most.
-- No printing, no iCloud sync, no calendar integration — by design for v1.
+- Calendar events are read-only; no printing, no sync of Desk's own data.
 - Ad-hoc signed: Gatekeeper requires a one-time right-click → Open.
