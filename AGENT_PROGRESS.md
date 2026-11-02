@@ -56,6 +56,9 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
 - Hooks are installed only when `DESK_SCRATCH_STORE` or `DESK_DEBUG_HOOKS=1` is set. The notification is a broadcast, and on
   2026-11-02 an app run from Xcode against the real store answered a scripted `demo` command; the gate prevents a repeat.
   `action removeDemo` (and File → Remove Demo Data…) deletes exactly the seed records by content.
+- `block <title> <startMinutes> <endMinutes>` creates a block on the selected date (used to reproduce short-block layouts).
+- Short blocks: `OverlapLayout.visualHeight` gives slivers a 16 pt floor only when nothing follows in the same lane; otherwise
+  they keep their true height and render a one-line micro label, so 12:00–12:15 never paints over a block at 12:15.
 - Posted `NSEvent`s reach AppKit controls/SwiftUI buttons but NOT SwiftUI gestures; drags are tested with XCUITest's
   `click(forDuration:thenDragTo:)` (`press(forDuration:thenDragTo:)` does not drive SwiftUI drags on macOS).
 

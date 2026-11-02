@@ -6,16 +6,25 @@ struct TimeBlockView: View {
     var isSelected = false
     var isDimmed = false
     var compact = false
+    /// Under ~20 pt: one tiny line, no vertical padding, so a 15-minute sliver still reads.
+    var micro = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         let color = occurrence.category.color
         let ink = scheme == .dark ? Color.white.opacity(0.92) : occurrence.category.inkColor
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: micro ? .center : .top, spacing: 0) {
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(color)
                 .frame(width: 3)
-                .padding(.vertical, 2)
+                .padding(.vertical, micro ? 1 : 2)
+            if micro {
+                Text(occurrence.displayTitle)
+                    .font(Font.system(size: 9.5, weight: .medium))
+                    .lineLimit(1)
+                    .foregroundStyle(ink)
+                    .padding(.horizontal, 5)
+            } else {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(occurrence.displayTitle)
@@ -43,9 +52,10 @@ struct TimeBlockView: View {
             .foregroundStyle(ink)
             .padding(.horizontal, 6)
             .padding(.vertical, compact ? 2 : 5)
+            }
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: micro ? .leading : .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(color.opacity(scheme == .dark ? 0.34 : 0.19))

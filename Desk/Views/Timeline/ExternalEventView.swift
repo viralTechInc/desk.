@@ -6,16 +6,25 @@ struct ExternalEventView: View {
     let event: ExternalEvent
     var isSelected = false
     var compact = false
+    /// Under ~20 pt: one tiny line so a short meeting still reads.
+    var micro = false
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         let color = event.color
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: micro ? .center : .top, spacing: 0) {
             Rectangle()
                 .fill(color)
                 .frame(width: 3)
-                .padding(.vertical, 2)
+                .padding(.vertical, micro ? 1 : 2)
                 .mask(VStack(spacing: 2) { ForEach(0..<40, id: \.self) { _ in Rectangle().frame(height: 3) } })
+            if micro {
+                Text(event.displayTitle)
+                    .font(Font.system(size: 9.5, weight: .medium))
+                    .lineLimit(1)
+                    .foregroundStyle(scheme == .dark ? Color.white.opacity(0.9) : Theme.ink)
+                    .padding(.horizontal, 5)
+            } else {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Image(systemName: event.conference == nil ? "calendar" : "video.fill")
@@ -41,9 +50,10 @@ struct ExternalEventView: View {
             .foregroundStyle(scheme == .dark ? Color.white.opacity(0.9) : Theme.ink)
             .padding(.horizontal, 6)
             .padding(.vertical, compact ? 2 : 5)
+            }
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: micro ? .leading : .topLeading)
         .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(color.opacity(scheme == .dark ? 0.16 : 0.09)))
         .overlay(
             RoundedRectangle(cornerRadius: 4, style: .continuous)

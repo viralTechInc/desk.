@@ -134,6 +134,23 @@ struct OverlapLayoutTests {
         #expect(byTitle["c"]!.column == 1) // reuses b's column after b ends
     }
 
+    @Test func shortBlocksNeverCoverTheNextOne() {
+        // Fit-to-window: 40 pt per hour, so 15 minutes is 10 pt — under the 16 pt floor.
+        let g = TimelineGeometry(startHour: 6, endHour: 22, hourHeight: 40)
+        let laid = OverlapLayout.layout([occ("Meditation", 720, 735), occ("Eat", 735, 780), occ("Later", 900, 915)])
+        let byTitle = Dictionary(uniqueKeysWithValues: laid.map { ($0.event.title, $0) })
+        let meditation = OverlapLayout.visualHeight(of: byTitle["Meditation"]!, among: laid, geometry: g, floor: 16)
+        #expect(meditation == 8)                        // true height (10 − 2), no spill into Eat
+        let later = OverlapLayout.visualHeight(of: byTitle["Later"]!, among: laid, geometry: g, floor: 16)
+        #expect(later == 16)                            // nothing after it: gets the floor
+        let eat = OverlapLayout.visualHeight(of: byTitle["Eat"]!, among: laid, geometry: g, floor: 16)
+        #expect(eat == 28)                              // long enough: natural height
+        // A side-by-side neighbour in another lane does not cap the height.
+        let lanes = OverlapLayout.layout([occ("a", 720, 735), occ("b", 720, 800), occ("c", 735, 800)])
+        let a = lanes.first { $0.event.title == "a" }!
+        #expect(OverlapLayout.visualHeight(of: a, among: lanes, geometry: g, floor: 16) == 8)
+    }
+
     @Test func geometryMapsMinutesToPoints() {
         let g = TimelineGeometry(startHour: 6, endHour: 22, hourHeight: 64)
         #expect(g.y(forMinutes: 6 * 60) == 0)

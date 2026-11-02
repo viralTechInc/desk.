@@ -14,6 +14,7 @@ switch a[1] {
 case "screenshot": info["path"] = a[2]
 case "action": info["name"] = a[2]; if a.count > 3 { info["value"] = a[3] }
 case "date", "type", "appearance": info["value"] = a[2]
+case "block": info["value"] = a[2]; info["start"] = a[3]; info["end"] = a[4]
 case "resize": info["w"] = a[2]; info["h"] = a[3]
 case "click": info["x"] = a[2]; info["y"] = a[3]
 case "key": info["value"] = a[2]; if a.count > 3 { info["cmd"] = a[3] }

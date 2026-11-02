@@ -69,6 +69,11 @@ enum DebugHooks {
                 f.size = NSSize(width: w, height: h)
                 window.setFrame(f, display: true, animate: false)
             }
+        case "block":
+            // Creates a single block on the selected date: block <title> <startMinutes> <endMinutes>.
+            if let title = info["value"], let s = info["start"].flatMap(Int.init), let e = info["end"].flatMap(Int.init) {
+                _ = model.store.createBlock(BlockDraft(title: title, date: state.selectedDate, startMinutes: s, endMinutes: e, category: .personal))
+            }
         case "edit":
             // Open the editor for the first occurrence on the selected date.
             if let occ = model.store.occurrences(on: state.selectedDate).first { state.edit(occ) }

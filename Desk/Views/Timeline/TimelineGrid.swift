@@ -201,9 +201,9 @@ private struct DayColumn: View {
             ForEach(laidOut) { item in
                 switch item.item {
                 case .block(let occ):
-                    blockView(occ, item)
+                    blockView(occ, item, among: laidOut)
                 case .external(let ev):
-                    externalView(ev, item)
+                    externalView(ev, item, among: laidOut)
                 }
             }
 
@@ -220,13 +220,13 @@ private struct DayColumn: View {
     }
 
     @ViewBuilder
-    private func externalView(_ ev: ExternalEvent, _ item: LaidOutItem<ScheduleEntry>) -> some View {
+    private func externalView(_ ev: ExternalEvent, _ item: LaidOutItem<ScheduleEntry>, among laidOut: [LaidOutItem<ScheduleEntry>]) -> some View {
         let inner = columnWidth - 6
         let width = max(inner * item.widthFraction - (item.columnCount > 1 ? 2 : 0), 14)
         let x = 3 + inner * item.xFraction
-        let height = max(geometry.height(forDuration: ev.durationMinutes) - 2, 16)
+        let height = OverlapLayout.visualHeight(of: item, among: laidOut, geometry: geometry, floor: 16)
         let isSelected = selectedExternalID == ev.id
-        ExternalEventView(event: ev, isSelected: isSelected, compact: height < 34)
+        ExternalEventView(event: ev, isSelected: isSelected, compact: height < 34, micro: height < 20)
             .frame(width: width, height: height)
             .contentShape(Rectangle())
             .onTapGesture { selectedExternalID = ev.id }
@@ -247,23 +247,25 @@ private struct DayColumn: View {
     }
 
     @ViewBuilder
-    private func blockView(_ occ: EventOccurrence, _ item: LaidOutItem<ScheduleEntry>) -> some View {
+    private func blockView(_ occ: EventOccurrence, _ item: LaidOutItem<ScheduleEntry>, among laidOut: [LaidOutItem<ScheduleEntry>]) -> some View {
         let inner = columnWidth - 6
         let width = max(inner * item.widthFraction - (item.columnCount > 1 ? 2 : 0), 14)
         let x = 3 + inner * item.xFraction
-        let height = max(geometry.height(forDuration: occ.durationMinutes) - 2, 16)
+        let height = OverlapLayout.visualHeight(of: item, among: laidOut, geometry: geometry, floor: 16)
         let isSelected = appState.selectedOccurrenceID == occ.id
         let isEditing = appState.editingOccurrenceID == occ.id
 
-        TimeBlockView(occurrence: occ, isSelected: isSelected || isEditing, isDimmed: draggingID == occ.id && isMoving, compact: height < 34)
+        TimeBlockView(occurrence: occ, isSelected: isSelected || isEditing, isDimmed: draggingID == occ.id && isMoving,
+                      compact: height < 34, micro: height < 20)
             .frame(width: width, height: height)
             .contentShape(Rectangle())
             .gesture(moveGesture(occ))
             .overlay(alignment: .bottom) {
                 ResizeHandle()
-                    .frame(height: 8)
+                    .frame(height: min(8, max(3, (height / 3).rounded(.down))))
                     .gesture(resizeGesture(occ))
             }
+            .help(height < 20 ? "\(occ.displayTitle) · \(TimeFormat.range(occ.startMinutes, occ.endMinutes))" : "")
             .contextMenu { contextMenu(occ) }
             .popover(isPresented: Binding(
                 get: { appState.editingOccurrenceID == occ.id },

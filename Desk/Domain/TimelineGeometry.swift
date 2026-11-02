@@ -74,6 +74,29 @@ extension LaidOutItem where Item == EventOccurrence {
 }
 
 enum OverlapLayout {
+    /// Visual height for an item. Very short items are given `floor` so their label stays
+    /// readable, but never so much that they cover the next item in the same lane: a
+    /// 12:00–12:15 block followed by one at 12:15 keeps its true (thin) height instead.
+    static func visualHeight<Item: TimelineItem>(
+        of item: LaidOutItem<Item>, among items: [LaidOutItem<Item>],
+        geometry: TimelineGeometry, floor: CGFloat, inset: CGFloat = 2
+    ) -> CGFloat {
+        let natural = geometry.height(forDuration: item.item.endMinutes - item.item.startMinutes) - inset
+        guard natural < floor else { return natural }
+        let nextStart = items.lazy
+            .filter { other in
+                other.id != item.id
+                    && other.item.startMinutes >= item.item.endMinutes
+                    && other.xFraction < item.xFraction + item.widthFraction
+                    && item.xFraction < other.xFraction + other.widthFraction
+            }
+            .map(\.item.startMinutes)
+            .min()
+        guard let nextStart else { return max(natural, floor) }
+        let room = geometry.y(forMinutes: nextStart) - geometry.y(forMinutes: item.item.startMinutes) - inset
+        return max(natural, min(floor, room))
+    }
+
     /// Classic interval-graph column packing. Items that transitively overlap form a
     /// cluster; each cluster is split into the minimum number of columns greedily.
     static func layout<Item: TimelineItem>(_ items: [Item]) -> [LaidOutItem<Item>] {
