@@ -39,6 +39,8 @@ struct ExternalEvent: TimelineItem, Sendable {
     let color: Color
     let location: String?
     let isBusy: Bool
+    /// Video-call link, when the event carries one (Google Meet, Zoom, Teams…).
+    let conference: ConferenceLink?
 
     var durationMinutes: Int { endMinutes - startMinutes }
 
@@ -64,6 +66,8 @@ enum ExternalEventSplitter {
         var color: Color
         var location: String?
         var isBusy: Bool = true
+        var url: URL? = nil
+        var notes: String? = nil
     }
 
     static func slices(of event: Source, in range: ClosedRange<LocalDate>, calendar: DeskCalendar) -> [ExternalEvent] {
@@ -79,6 +83,7 @@ enum ExternalEventSplitter {
         let from = max(firstDay, range.lowerBound)
         let to = min(lastDay, range.upperBound)
         guard from <= to else { return [] }
+        let conference = ConferenceLinkDetector.detect(url: event.url, location: event.location, notes: event.notes)
 
         return calendar.days(in: from...to).map { day in
             let startMinutes: Int
@@ -96,7 +101,7 @@ enum ExternalEventSplitter {
                 startMinutes: startMinutes, endMinutes: endMinutes, isAllDay: event.isAllDay,
                 continuesFromPreviousDay: day > firstDay, continuesIntoNextDay: day < lastDay,
                 calendarID: event.calendarID, calendarTitle: event.calendarTitle, sourceTitle: event.sourceTitle,
-                color: event.color, location: event.location, isBusy: event.isBusy)
+                color: event.color, location: event.location, isBusy: event.isBusy, conference: conference)
         }
     }
 }
@@ -150,6 +155,12 @@ enum ScheduleEntry: TimelineItem, Sendable {
         switch self {
         case .block: nil
         case .external(let e): e.calendarTitle
+        }
+    }
+    var conference: ConferenceLink? {
+        switch self {
+        case .block: nil
+        case .external(let e): e.conference
         }
     }
 }

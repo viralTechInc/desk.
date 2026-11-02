@@ -18,10 +18,10 @@ struct ExternalEventView: View {
                 .mask(VStack(spacing: 2) { ForEach(0..<40, id: \.self) { _ in Rectangle().frame(height: 3) } })
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Image(systemName: "calendar")
+                    Image(systemName: event.conference == nil ? "calendar" : "video.fill")
                         .font(.system(size: 8.5, weight: .semibold))
                         .opacity(0.6)
-                        .accessibilityHidden(true)
+                        .accessibilityLabel(event.conference.map { "\($0.service.label) call" } ?? "")
                     Text(event.displayTitle)
                         .font(compact ? Font.system(size: 11.5, weight: .medium) : Theme.eventLabel)
                         .lineLimit(compact ? 1 : 2)
@@ -75,7 +75,19 @@ struct ExternalEventPopover: View {
             }
             Text(event.isAllDay ? "All day" : TimeFormat.range(event.startMinutes, event.endMinutes))
                 .font(Theme.body).foregroundStyle(Theme.ink)
-            if let loc = event.location, !loc.isEmpty {
+            if let link = event.conference {
+                Label(link.shortText, systemImage: "video")
+                    .font(Theme.caption).foregroundStyle(Theme.inkMuted)
+                    .lineLimit(1).truncationMode(.middle)
+                    .help(link.url.absoluteString)
+                    .contextMenu {
+                        Button("Copy Link") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(link.url.absoluteString, forType: .string)
+                        }
+                    }
+            }
+            if let loc = event.location, !loc.isEmpty, event.conference?.url.absoluteString != loc.trimmingCharacters(in: .whitespacesAndNewlines) {
                 Label(loc, systemImage: "mappin.and.ellipse").font(Theme.caption).foregroundStyle(Theme.inkMuted)
             }
             Text("\(event.calendarTitle) · \(event.sourceTitle)")
@@ -86,7 +98,12 @@ struct ExternalEventPopover: View {
             HStack {
                 Spacer()
                 Button("Open in Calendar") { calendarService.openInCalendar(event) }
-                    .buttonStyle(QuietButtonStyle(prominent: true))
+                    .buttonStyle(QuietButtonStyle(prominent: event.conference == nil))
+                if let link = event.conference {
+                    Button(link.joinTitle) { calendarService.join(link) }
+                        .buttonStyle(QuietButtonStyle(prominent: true))
+                        .accessibilityIdentifier("external.join")
+                }
             }
         }
         .padding(16)

@@ -170,7 +170,8 @@ final class CalendarService {
                 title: ev.title ?? "", start: startDate, end: endDate, isAllDay: ev.isAllDay,
                 calendarID: ev.calendar.calendarIdentifier, calendarTitle: ev.calendar.title,
                 sourceTitle: ev.calendar.source?.title ?? "", color: Color(nsColor: ev.calendar.color ?? .systemGray),
-                location: ev.location, isBusy: ev.availability != .free)
+                location: ev.location, isBusy: ev.availability != .free,
+                url: ev.url, notes: ev.notes)
             for slice in ExternalEventSplitter.slices(of: source, in: range, calendar: deskCalendar) where !seen.contains(slice.id) {
                 seen.insert(slice.id)
                 result.append(slice)
@@ -185,6 +186,11 @@ final class CalendarService {
         if let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.iCal") {
             NSWorkspace.shared.openApplication(at: app, configuration: NSWorkspace.OpenConfiguration())
         }
+    }
+
+    /// Opens the event's video call in the default browser (or the service's app).
+    func join(_ link: ConferenceLink) {
+        NSWorkspace.shared.open(link.url)
     }
 
     private func databaseChanged() {

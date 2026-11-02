@@ -112,6 +112,7 @@ struct MenuBarContent: View {
 private struct EntryRow: View {
     let entry: ScheduleEntry
     let trailing: String
+    @Environment(CalendarService.self) private var calendarService
     var body: some View {
         HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 1.5).fill(entry.color).frame(width: 3, height: 26)
@@ -126,6 +127,11 @@ private struct EntryRow: View {
                     .font(Theme.caption).foregroundStyle(Theme.inkMuted).lineLimit(1)
             }
             Spacer()
+            if let link = entry.conference {
+                Button("Join") { calendarService.join(link) }
+                    .buttonStyle(QuietButtonStyle(prominent: true))
+                    .help(link.joinTitle)
+            }
             Text(trailing).font(Theme.caption).foregroundStyle(Theme.inkMuted)
         }
     }

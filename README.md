@@ -112,6 +112,10 @@ Behaviour:
   outside"; click one for details and *Open in Calendar*. All-day events sit in a strip above
   the grid. Multi-day events are sliced per day. Events without a title (private/busy-only
   calendars) show as "Busy".
+- Events with a video call show a camera icon. Desk finds Google Meet, Zoom, Microsoft Teams,
+  Webex and FaceTime links in the event's URL, location or description (this is what Google
+  syncs for Meet). The popover gets a *Join Google Meet* button and a copyable link, and the
+  menu bar rows get a *Join* button.
 - Changes made in Calendar, on your phone or on the web appear while Desk is running (EventKit
   change notifications, plus a refresh whenever Desk becomes active or you navigate). Removing
   an account in System Settings removes its events.
