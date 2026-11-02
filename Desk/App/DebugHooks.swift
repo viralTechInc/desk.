@@ -40,6 +40,11 @@ enum DebugHooks {
             case "demo": model.actions.loadDemoData()
             case "removeDemo": model.actions.removeDemoData()
             case "toggleAppearance": model.settings.toggleAppearance()
+            case "partner":
+                model.sharing.reload()
+                state.showPartner(state.viewingPartnerID == nil ? model.sharing.partners.first?.id : nil)
+            case "publish": model.sharing.publishNow()
+            case "reloadShare": model.sharing.reload()
             case "help": state.showShortcutHelp = true
             case "escape": state.escape()
             case "focusBrain": state.requestFocus(.brainDump)

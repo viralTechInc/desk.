@@ -35,6 +35,15 @@ final class AppState {
     var editingIsNew = false
     var selectedOccurrenceID: String?
 
+    /// A partner's shared desk being viewed instead of mine (`nil` = mine).
+    var viewingPartnerID: String?
+
+    func showPartner(_ id: String?) {
+        guard id != viewingPartnerID else { return }
+        viewingPartnerID = id
+        dismissOverlays()
+    }
+
     var scopePrompt: ScopePrompt?
     var seriesDeletion: EventOccurrence?
     var showShortcutHelp = false

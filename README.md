@@ -27,6 +27,16 @@ fallback was not needed. The Xcode project is generated from `project.yml` with
 launch macOS may ask you to confirm opening an app from an unidentified developer:
 right-click → Open, or allow it under System Settings → Privacy & Security.
 
+## Giving Desk to someone else (TestFlight)
+
+`scripts/testflight.sh` archives, signs with your Apple Developer team and uploads to TestFlight,
+all from the terminal. The tester installs the TestFlight app from the Mac App Store, accepts
+the invitation and gets every new build automatically — no Gatekeeper warning, no zip files.
+One-time setup (an App Store Connect app record for `com.desk.planner`, an App Store Connect
+API key, and a git-ignored `.testflight.env` with the team ID and key) is described at the top
+of the script. Each run gets a fresh build number from the UTC time, so uploads never collide.
+`scripts/dist.sh` is the local equivalent: an ad-hoc signed build into `dist/`.
+
 ## Build from source
 
 ```bash
@@ -70,6 +80,7 @@ xcodebuild -project Desk.xcodeproj -scheme Desk -destination 'platform=macOS' te
 | Esc | Close popover, deselect |
 | ⌘Z / ⇧⌘Z | Undo / redo (text while typing, otherwise block changes) |
 | ⇧⌘L | Switch light / dark (also the sun/moon button in the toolbar; View → Appearance for System) |
+| ⇧⌘P | Switch between my desk and a partner's (View menu; also the "Mine / name" switch in the toolbar) |
 | ? | Shortcut help |
 
 Letter shortcuts only fire when you are not typing in a text field. The menu bar carries
@@ -133,6 +144,28 @@ Behaviour:
 Note for builds from source: the app is ad-hoc signed, so macOS treats each rebuild as a new
 app for privacy purposes and may ask for calendar access again.
 
+## Sharing your desk with a partner
+
+Two Desks can see each other through a folder both Macs can reach — typically a folder in iCloud
+Drive that one of you shares with the other's Apple ID (Finder → right‑click → Share →
+Collaborate), but any Dropbox / Google Drive folder works the same way. There is no server and
+no account: the folder's own sync moves two small files.
+
+1. **Settings (⌘,) → Sharing → Choose Shared Folder…** and pick that folder; set *My name*.
+2. Your partner does the same in their Desk, choosing the same folder.
+3. A **Mine / <name>** switch appears in the toolbar (⇧⌘P). Their desk opens exactly as they
+   see it: priorities, day and week brain dumps, routines and blocks, in Day or Week view —
+   all read-only. The line under the date says how fresh the copy is.
+4. On your own schedule their blocks appear **outlined** with a person icon, like calendar
+   events, so you can see when they're busy. Click one for its note. Turn this off under
+   Settings → Sharing if you'd rather only switch over.
+
+Each Desk writes one file, `<name>.desk.json` (the same content as a backup), a moment after
+every change and only when something changed; it reads the others' files whenever the folder
+changes, on activation, and every 20 seconds. A Desk never writes another Desk's file, so
+nothing you do can alter your partner's planner. *Stop Sharing* removes your file. Expect a
+few seconds to a minute of delay (iCloud Drive's), longer if a Mac is asleep.
+
 ## Architecture
 
 ```
@@ -150,9 +183,14 @@ Desk/
   Calendar/    CalendarService (EventKit, read-only; permissions, calendar list, enabled set,
                change observation), ExternalEvent + ExternalEventSplitter (per-day slices),
                ScheduleEntry (block | external), ScheduleMerger (pure merge + "now/next" logic)
+  Sharing/     SharedDeskFile (own file format = backup + identity), PartnerDesk (read-only
+               snapshot: pages, weeks, occurrences via RecurrenceEngine, overlay events),
+               SharingService (security-scoped folder bookmark, debounced publish, folder
+               watcher + poll, partner discovery)
   Views/       RootView + toolbar, Day (DayView, NotebookPanel, PlainTextView), Week,
                Timeline (TimelineGrid, TimeBlockView, ExternalEventView, AllDayStrip),
-               Editor (BlockEditorView), Settings (General, Calendars), Help, MenuBar
+               Partner (read-only PartnerDayView / PartnerWeekView, NotesReader),
+               Editor (BlockEditorView), Settings (General, Calendars, Sharing), Help, MenuBar
 DeskTests/     unit tests          DeskUITests/   XCUITest interaction tests
 scripts/       make-icon.swift, desk-debug.swift (drives DEBUG builds for screenshots), shot.swift
 ```
@@ -189,5 +227,7 @@ covers the container.
 - Recurrence is weekly-on-selected-weekdays only (no monthly/yearly/interval rules); routines
   have no end date in the UI.
 - Blocks live within one day (no overnight blocks); the timeline shows 00:00–24:00 at most.
-- Calendar events are read-only; no printing, no sync of Desk's own data.
-- Ad-hoc signed: Gatekeeper requires a one-time right-click → Open.
+- Calendar events are read-only; no printing. Desk's own data syncs only as a read-only copy
+  through a shared folder (see Sharing) — two people can't edit the same desk.
+- `dist/` builds are ad-hoc signed: Gatekeeper requires a one-time right-click → Open. TestFlight
+  builds (scripts/testflight.sh) are signed with your team and open normally.

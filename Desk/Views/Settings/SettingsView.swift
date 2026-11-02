@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var settings
     var body: some View {
         @Bindable var appState = appState
         TabView(selection: $appState.settingsTab) {
@@ -11,8 +12,12 @@ struct SettingsView: View {
             CalendarSettingsView()
                 .tabItem { Label("Calendars", systemImage: "calendar") }
                 .tag("calendars")
+            SharingSettingsView()
+                .tabItem { Label("Sharing", systemImage: "person.2") }
+                .tag("sharing")
         }
         .frame(width: 520, height: 520)
+        .preferredColorScheme(settings.appearance.colorScheme)
     }
 }
 

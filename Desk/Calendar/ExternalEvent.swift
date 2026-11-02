@@ -20,6 +20,12 @@ struct CalendarInfo: Identifiable, Hashable, Sendable {
     let allowsModifications: Bool
 }
 
+/// Who owns a read-only timeline entry.
+enum ExternalOrigin: Hashable, Sendable {
+    case calendar
+    case partner(name: String, note: String)
+}
+
 /// One day's slice of a system calendar event. External events are read-only and are
 /// never written to Desk's store; they are re-read from EventKit on demand.
 struct ExternalEvent: TimelineItem, Sendable {
@@ -41,6 +47,10 @@ struct ExternalEvent: TimelineItem, Sendable {
     let isBusy: Bool
     /// Video-call link, when the event carries one (Google Meet, Zoom, Teams…).
     let conference: ConferenceLink?
+    /// Where the entry came from: the Mac's calendar database, or a partner's shared Desk.
+    var origin: ExternalOrigin = .calendar
+
+    var isPartner: Bool { origin != .calendar }
 
     var durationMinutes: Int { endMinutes - startMinutes }
 

@@ -5,12 +5,15 @@ import SwiftUI
 struct TimelineGrid: View {
     let days: [LocalDate]
     var showHeaders: Bool
+    /// When set, the grid shows that partner's blocks instead of mine and nothing can be edited.
+    var partner: PartnerDesk? = nil
 
     @Environment(PlannerStore.self) private var store
     @Environment(AppState.self) private var appState
     @Environment(AppSettings.self) private var settings
     @Environment(AppActions.self) private var actions
     @Environment(CalendarService.self) private var calendarService
+    @Environment(SharingService.self) private var sharing
 
     @State private var drag: DragState?
 
@@ -23,11 +26,9 @@ struct TimelineGrid: View {
     var body: some View {
         let _ = store.revision
         let _ = calendarService.revision
+        let _ = sharing.revision
         let range = days.first!...days.last!
-        let events = store.occurrences(in: range)
-        let external = calendarService.events(in: range, calendar: appState.calendar)
-        let entries = ScheduleMerger.timedEntries(blocks: events, external: external)
-        let allDay = ScheduleMerger.allDay(external)
+        let (entries, allDay) = gather(range: range)
         let hasToday = days.contains(appState.today)
 
         VStack(spacing: 0) {
@@ -57,6 +58,18 @@ struct TimelineGrid: View {
     static let topInset: CGFloat = 14
     static let bottomInset: CGFloat = 14
 
+    /// My blocks, my calendars and (outlined) my partners' blocks — or, for a partner's
+    /// page, exactly their blocks.
+    private func gather(range: ClosedRange<LocalDate>) -> (entries: [ScheduleEntry], allDay: [ExternalEvent]) {
+        if let partner {
+            return (partner.occurrences(in: range, calendar: appState.calendar).map(ScheduleEntry.block), [])
+        }
+        let events = store.occurrences(in: range)
+        let external = calendarService.events(in: range, calendar: appState.calendar)
+            + sharing.partnerEvents(in: range, calendar: appState.calendar)
+        return (ScheduleMerger.timedEntries(blocks: events, external: external), ScheduleMerger.allDay(external))
+    }
+
     @ViewBuilder
     private func timeline(geometry: TimelineGeometry, hasToday: Bool, entries: [ScheduleEntry], overflows: Bool) -> some View {
             ScrollViewReader { proxy in
@@ -74,6 +87,7 @@ struct TimelineGrid: View {
                                             day: day, index: index, columnWidth: columnWidth, columnCount: days.count,
                                             geometry: geometry,
                                             entries: displayedEntries(entries, dayIndex: index),
+                                            readOnlyOwner: partner?.name,
                                             draggingID: draggingID,
                                             drag: $drag,
                                             onCreate: { start, end in actions.createBlock(date: day, start: start, end: end) },
@@ -118,7 +132,7 @@ struct TimelineGrid: View {
             }
             .overlay(alignment: .top) {
                 if entries.isEmpty, drag == nil, days.count == 1 {
-                    Text("Drag on the grid to block time, or press A")
+                    Text(partner == nil ? "Drag on the grid to block time, or press A" : "Nothing planned")
                         .font(Theme.caption)
                         .foregroundStyle(Theme.inkFaint)
                         .padding(.top, 10)
@@ -171,6 +185,8 @@ private struct DayColumn: View {
     let columnCount: Int
     let geometry: TimelineGeometry
     let entries: [ScheduleEntry]
+    /// Set for a partner's page: blocks show details on click but can't be changed.
+    let readOnlyOwner: String?
     let draggingID: String?
     @Binding var drag: TimelineGrid.DragState?
     let onCreate: (Int, Int) -> Void
@@ -182,26 +198,23 @@ private struct DayColumn: View {
     @Environment(PlannerStore.self) private var store
     @Environment(CalendarService.self) private var calendarService
     @State private var selectedExternalID: String?
+    @State private var selectedReadOnlyID: String?
+
+    private var readOnly: Bool { readOnlyOwner != nil }
 
     var body: some View {
         let laidOut = OverlapLayout.layout(entries)
         ZStack(alignment: .topLeading) {
-            Color.clear
-                .contentShape(Rectangle())
-                .gesture(createGesture)
-                .contextMenu {
-                    Button("Add Block Here") {
-                        let start = TimeRules.snapDown(geometry.startMinutes + 9 * 60 - geometry.startMinutes)
-                        onCreate(start, min(start + 60, TimeRules.dayMinutes))
-                    }
-                }
-                .accessibilityLabel("Schedule for \(day.description)")
-                .accessibilityIdentifier("timeline.column.\(index)")
+            background
 
             ForEach(laidOut) { item in
                 switch item.item {
                 case .block(let occ):
-                    blockView(occ, item, among: laidOut)
+                    if let owner = readOnlyOwner {
+                        readOnlyBlockView(occ, item, among: laidOut, owner: owner)
+                    } else {
+                        blockView(occ, item, among: laidOut)
+                    }
                 case .external(let ev):
                     externalView(ev, item, among: laidOut)
                 }
@@ -220,6 +233,51 @@ private struct DayColumn: View {
     }
 
     @ViewBuilder
+    private var background: some View {
+        let base = Color.clear
+            .contentShape(Rectangle())
+            .accessibilityLabel(readOnly ? "\(readOnlyOwner ?? "")’s schedule for \(day.description)" : "Schedule for \(day.description)")
+            .accessibilityIdentifier("timeline.column.\(index)")
+        if readOnly {
+            base
+        } else {
+            base
+                .gesture(createGesture)
+                .contextMenu {
+                    Button("Add Block Here") {
+                        let start = TimeRules.snapDown(geometry.startMinutes + 9 * 60 - geometry.startMinutes)
+                        onCreate(start, min(start + 60, TimeRules.dayMinutes))
+                    }
+                }
+        }
+    }
+
+    /// A partner's block: same look as mine, click for details, no gestures at all.
+    @ViewBuilder
+    private func readOnlyBlockView(_ occ: EventOccurrence, _ item: LaidOutItem<ScheduleEntry>, among laidOut: [LaidOutItem<ScheduleEntry>], owner: String) -> some View {
+        let inner = columnWidth - 6
+        let width = max(inner * item.widthFraction - (item.columnCount > 1 ? 2 : 0), 14)
+        let x = 3 + inner * item.xFraction
+        let height = OverlapLayout.visualHeight(of: item, among: laidOut, geometry: geometry, floor: 16)
+        let isSelected = selectedReadOnlyID == occ.id
+        TimeBlockView(occurrence: occ, isSelected: isSelected, compact: height < 34, micro: height < 20)
+            .frame(width: width, height: height)
+            .contentShape(Rectangle())
+            .onTapGesture { selectedReadOnlyID = occ.id }
+            .help(height < 20 ? "\(occ.displayTitle) · \(TimeFormat.range(occ.startMinutes, occ.endMinutes))" : "")
+            .popover(isPresented: Binding(get: { selectedReadOnlyID == occ.id }, set: { if !$0 { selectedReadOnlyID = nil } }),
+                     arrowEdge: columnCount > 1 && index >= columnCount - 2 ? .leading : .trailing) {
+                ReadOnlyBlockPopover(occurrence: occ, owner: owner)
+            }
+            .offset(x: x, y: geometry.y(forMinutes: occ.startMinutes) + 1)
+            .zIndex(isSelected ? 2 : 1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(occ.displayTitle), \(TimeFormat.range(occ.startMinutes, occ.endMinutes)), \(owner)’s block")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("partnerBlock.\(occ.displayTitle)")
+    }
+
+    @ViewBuilder
     private func externalView(_ ev: ExternalEvent, _ item: LaidOutItem<ScheduleEntry>, among laidOut: [LaidOutItem<ScheduleEntry>]) -> some View {
         let inner = columnWidth - 6
         let width = max(inner * item.widthFraction - (item.columnCount > 1 ? 2 : 0), 14)
@@ -231,7 +289,9 @@ private struct DayColumn: View {
             .contentShape(Rectangle())
             .onTapGesture { selectedExternalID = ev.id }
             .contextMenu {
-                Button("Open in Calendar") { calendarService.openInCalendar(ev) }
+                if !ev.isPartner {
+                    Button("Open in Calendar") { calendarService.openInCalendar(ev) }
+                }
             }
             .popover(isPresented: Binding(get: { selectedExternalID == ev.id }, set: { if !$0 { selectedExternalID = nil } }),
                      arrowEdge: columnCount > 1 && index >= columnCount - 2 ? .leading : .trailing) {
@@ -243,7 +303,9 @@ private struct DayColumn: View {
             .accessibilityLabel("\(ev.displayTitle), \(TimeFormat.range(ev.startMinutes, ev.endMinutes)), \(ev.calendarTitle) calendar")
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("external.\(ev.displayTitle)")
-            .accessibilityAction(named: "Open in Calendar") { calendarService.openInCalendar(ev) }
+            .accessibilityAction(named: ev.isPartner ? "Show details" : "Open in Calendar") {
+                if ev.isPartner { selectedExternalID = ev.id } else { calendarService.openInCalendar(ev) }
+            }
     }
 
     @ViewBuilder

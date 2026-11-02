@@ -10,6 +10,7 @@ final class AppModel {
     let actions: AppActions
     let shortcuts: ShortcutMonitor
     let calendarService: CalendarService
+    let sharing: SharingService
     let feed: ScheduleFeed
     let startupError: String?
 
@@ -33,6 +34,21 @@ final class AppModel {
         self.actions = actions
         self.shortcuts = ShortcutMonitor(appState: appState, actions: actions)
         self.calendarService = CalendarService()
+        var shareFolder: URL?
+        var shareDefaults = UserDefaults.standard
+        #if DEBUG
+        // Scripted runs point at a plain folder instead of a remembered bookmark, with their
+        // own preferences so two scratch instances get distinct identities and the real
+        // app's sharing settings are never touched.
+        let env = ProcessInfo.processInfo.environment
+        if let path = env["DESK_SHARE_FOLDER"], !path.isEmpty {
+            shareFolder = URL(fileURLWithPath: path, isDirectory: true)
+            let name = env["DESK_SHARE_NAME"] ?? "scratch"
+            shareDefaults = UserDefaults(suiteName: "com.desk.planner.scratch-share-\(name)") ?? .standard
+            shareDefaults.set(name, forKey: SharingService.Keys.displayName)
+        }
+        #endif
+        self.sharing = SharingService(store: store, defaults: shareDefaults, folderOverride: shareFolder)
         self.feed = ScheduleFeed(store: store, calendarService: calendarService, appState: appState)
         self.startupError = startupError
         shortcuts.install()
@@ -70,6 +86,7 @@ struct DeskApp: App {
                 .environment(model.settings)
                 .environment(model.actions)
                 .environment(model.calendarService)
+                .environment(model.sharing)
                 .frame(minWidth: 760, minHeight: 540)
                 .onAppear {
                     if let err = model.startupError {
@@ -89,6 +106,7 @@ struct DeskApp: App {
                 .environment(model.store)
                 .environment(model.appState)
                 .environment(model.calendarService)
+                .environment(model.sharing)
         }
 
         MenuBarExtra {

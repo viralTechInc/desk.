@@ -13,9 +13,13 @@ struct RootView: View {
             ToolbarView()
             Hairline()
             Group {
-                switch appState.viewMode {
-                case .day: DayView()
-                case .week: WeekView()
+                if appState.viewingPartnerID != nil {
+                    PartnerView()
+                } else {
+                    switch appState.viewMode {
+                    case .day: DayView()
+                    case .week: WeekView()
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -97,10 +101,20 @@ private struct RootLifecycle: ViewModifier {
     @Environment(AppState.self) private var appState
     @Environment(PlannerStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(SharingService.self) private var sharing
     @Environment(\.openSettings) private var openSettings
 
     func body(content: Content) -> some View {
         content
+            .onChange(of: store.saveState) {
+                if case .saved = store.saveState { sharing.schedulePublish() }
+            }
+            .onChange(of: sharing.revision) {
+                // The partner being viewed vanished from the folder: fall back to mine.
+                if let id = appState.viewingPartnerID, sharing.partner(id: id) == nil, sharing.partners.isEmpty {
+                    appState.showPartner(nil)
+                }
+            }
             .onChange(of: appState.settingsRequest) {
                 NSApp.activate(ignoringOtherApps: true)
                 openSettings()
@@ -109,9 +123,9 @@ private struct RootLifecycle: ViewModifier {
             .onChange(of: appState.viewMode) { store.flush() }
             .onChange(of: settings.firstWeekday, initial: true) { applyCalendar() }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in appState.refreshToday() }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in store.flush() }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in store.flush() }
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in appState.refreshToday() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in store.flush(); sharing.publishNow() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in store.flush(); sharing.publishNow() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in appState.refreshToday(); sharing.reload() }
             .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in applyCalendar() }
     }
 
@@ -126,10 +140,12 @@ struct ToolbarView: View {
     @Environment(AppState.self) private var appState
     @Environment(PlannerStore.self) private var store
     @Environment(AppSettings.self) private var settings
+    @Environment(SharingService.self) private var sharing
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         @Bindable var appState = appState
+        let _ = sharing.revision
         HStack(spacing: 12) {
             Text("desk.")
                 .font(Theme.wordmark)
@@ -138,6 +154,11 @@ struct ToolbarView: View {
                 .accessibilityHidden(true)
 
             ViewModeSwitcher(mode: Binding(get: { appState.viewMode }, set: { appState.show($0) }))
+
+            if !sharing.partners.isEmpty {
+                DeskSwitcher(partners: sharing.partners,
+                             selection: Binding(get: { appState.viewingPartnerID }, set: { appState.showPartner($0) }))
+            }
 
             Spacer(minLength: 16)
 
@@ -219,5 +240,41 @@ struct SaveIndicator: View {
         case .saved: "Saved"
         case .failed(let m): "Save failed: \(m)"
         }
+    }
+}
+
+/// "Mine | <partner>" switcher, shown only once a partner's file is in the shared folder.
+struct DeskSwitcher: View {
+    let partners: [PartnerDesk]
+    @Binding var selection: String?
+
+    var body: some View {
+        HStack(spacing: 2) {
+            segment(id: nil, label: "Mine")
+            ForEach(partners) { p in segment(id: p.id, label: p.name) }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.hairline.opacity(0.8)))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Whose desk")
+        .accessibilityIdentifier("toolbar.desk")
+    }
+
+    private func segment(id: String?, label: String) -> some View {
+        let on = selection == id
+        return Button(label) { selection = id }
+            .buttonStyle(.plain)
+            .font(Theme.toolbar)
+            .foregroundStyle(on ? Theme.ink : Theme.inkMuted)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(on ? Theme.surface : .clear)
+                    .shadow(color: on ? .black.opacity(0.06) : .clear, radius: 1, y: 1)
+            )
+            .help(id == nil ? "My desk" : "\(label)’s desk (⇧⌘P switches)")
+            .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 }

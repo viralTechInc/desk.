@@ -543,15 +543,19 @@ final class PlannerStore {
     // MARK: - Backup
 
     func exportBackup() throws -> Data {
+        try BackupDocument.encoder().encode(backupDocument())
+    }
+
+    /// Everything in the store as one value; also what a shared desk publishes.
+    func backupDocument() -> BackupDocument {
         flush()
-        let doc = BackupDocument(
+        return BackupDocument(
             exportedAt: now(), timeZone: calendar.timeZone.identifier,
             pages: fetch(FetchDescriptor<DailyPage>(sortBy: [SortDescriptor(\.dateKey)])).map(\.record),
             weeks: fetch(FetchDescriptor<WeeklyPage>(sortBy: [SortDescriptor(\.weekStartKey)])).map(\.record),
             blocks: fetch(FetchDescriptor<TimeBlock>(sortBy: [SortDescriptor(\.dateKey), SortDescriptor(\.startMinutes)])).map(\.record),
             rules: fetch(FetchDescriptor<RecurrenceRule>(sortBy: [SortDescriptor(\.createdAt)])).map(\.record),
             overrides: fetch(FetchDescriptor<OccurrenceOverride>(sortBy: [SortDescriptor(\.originalDateKey)])).map(\.record))
-        return try BackupDocument.encoder().encode(doc)
     }
 
     static func decodeBackup(_ data: Data) throws -> BackupDocument {

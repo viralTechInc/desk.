@@ -30,6 +30,10 @@ struct DeskCommands: Commands {
             Picker("Appearance", selection: Binding(get: { model.settings.appearance }, set: { model.settings.appearance = $0 })) {
                 ForEach(Appearance.allCases) { Text($0.label).tag($0) }
             }
+            Divider()
+            Button(model.appState.viewingPartnerID == nil ? "Show Partner’s Desk" : "Show My Desk") { switchDesk() }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+            Button("Sharing Settings…") { model.appState.openSettings(tab: "sharing") }
         }
         CommandMenu("Go") {
             Button("Today") { model.appState.goToToday() }
@@ -61,6 +65,20 @@ struct DeskCommands: Commands {
         CommandGroup(replacing: .help) {
             Button("Keyboard Shortcuts") { model.appState.showShortcutHelp.toggle() }
                 .keyboardShortcut("/", modifiers: .command)
+        }
+    }
+
+    /// Cycles mine → each partner → mine; with nobody sharing yet it opens the Sharing settings.
+    private func switchDesk() {
+        let partners = model.sharing.partners
+        guard !partners.isEmpty else { model.appState.openSettings(tab: "sharing"); return }
+        let current = model.appState.viewingPartnerID
+        if let current, let i = partners.firstIndex(where: { $0.id == current }), i + 1 < partners.count {
+            model.appState.showPartner(partners[i + 1].id)
+        } else if current == nil {
+            model.appState.showPartner(partners[0].id)
+        } else {
+            model.appState.showPartner(nil)
         }
     }
 

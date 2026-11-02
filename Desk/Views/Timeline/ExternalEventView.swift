@@ -27,10 +27,10 @@ struct ExternalEventView: View {
             } else {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Image(systemName: event.conference == nil ? "calendar" : "video.fill")
+                    Image(systemName: event.isPartner ? "person" : event.conference == nil ? "calendar" : "video.fill")
                         .font(.system(size: 8.5, weight: .semibold))
                         .opacity(0.6)
-                        .accessibilityLabel(event.conference.map { "\($0.service.label) call" } ?? "")
+                        .accessibilityLabel(event.isPartner ? "partner's block" : event.conference.map { "\($0.service.label) call" } ?? "")
                     Text(event.displayTitle)
                         .font(compact ? Font.system(size: 11.5, weight: .medium) : Theme.eventLabel)
                         .lineLimit(compact ? 1 : 2)
@@ -78,6 +78,35 @@ struct ExternalEventPopover: View {
     @Environment(CalendarService.self) private var calendarService
 
     var body: some View {
+        if case .partner(let name, let note) = event.origin {
+            partnerBody(name: name, note: note)
+        } else {
+            calendarBody
+        }
+    }
+
+    private func partnerBody(name: String, note: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Circle().fill(event.color).frame(width: 10, height: 10)
+                Text(event.displayTitle).font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.ink)
+            }
+            Text(TimeFormat.range(event.startMinutes, event.endMinutes))
+                .font(Theme.body).foregroundStyle(Theme.ink)
+            if !note.isEmpty {
+                Text(note).font(Theme.caption).foregroundStyle(Theme.inkMuted)
+                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+            }
+            Text("From \(name)’s desk, through your shared folder. Only they can change it.")
+                .font(.system(size: 11)).foregroundStyle(Theme.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 280)
+        .background(Theme.surfaceRaised)
+    }
+
+    private var calendarBody: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Circle().fill(event.color).frame(width: 10, height: 10)

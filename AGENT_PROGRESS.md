@@ -13,6 +13,24 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
 - [x] Phase 3 — Week screen: seven columns, drag-create / move across days / resize, overlap columns, scope prompt for routines, intentions row
 - [x] Phase 4 — letter shortcuts + menus, context menus, settings, shortcut help, backup export/import, demo data (opt-in), app icon, Release build in `dist/`
 
+## Partner sharing + TestFlight packaging — 2026-11-02
+- `Desk/Sharing/`: a Desk publishes `<name>.desk.json` (backup document + installID + name) into a user-chosen
+  folder (security-scoped bookmark, `files.bookmarks.app-scope` entitlement) ~1.5 s after each save, skipping
+  writes when nothing changed; reads every other `.desk.json` on folder events (DispatchSource), activation and a
+  20 s poll; newest file per installID wins; iCloud placeholders trigger `startDownloadingUbiquitousItem`.
+- Partner page = `PartnerView` (Day/Week) using `TimelineGrid(partner:)` → read-only `DayColumn` (no gestures,
+  `ReadOnlyBlockPopover`). Overlay on my schedule = partner occurrences mapped to `ExternalEvent` with
+  `origin: .partner(name:note:)` (outlined, person icon, own popover text). Toolbar `DeskSwitcher`, ⇧⌘P.
+- Scripted runs: `DESK_SHARE_FOLDER=<dir>` + `DESK_SHARE_NAME=<name>` use that folder directly with an isolated
+  defaults suite (so two scratch instances get different installIDs and the real app's sharing prefs stay
+  untouched); debug actions `partner`, `publish`, `reloadShare`. Launch instances one at a time — commands are
+  broadcasts.
+- TestFlight: hardened runtime on, `ITSAppUsesNonExemptEncryption=false`; `scripts/testflight.sh` (archive with
+  automatic signing + App Store Connect API key, export with destination=upload, UTC-timestamp build number);
+  `scripts/dist.sh` for the local ad-hoc build. Team ID / key live in git-ignored `.testflight.env`.
+- Unexplained once: in one scripted run the own file came out as `change.desk.json` (display name "change" in the
+  Settings text field) — not reproduced in two identical repeats.
+
 ## Calendar integration (EventKit) — 2026-11-01, second request
 - `Desk/Calendar/CalendarService.swift`: `EKEventStore`, `requestFullAccessToEvents()`, authorization states
   (not determined / denied / restricted / write-only / authorized), calendars grouped by `EKSource`, per-calendar
