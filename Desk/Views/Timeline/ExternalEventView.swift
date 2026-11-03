@@ -27,10 +27,10 @@ struct ExternalEventView: View {
             } else {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Image(systemName: event.isPartner ? "person" : event.conference == nil ? "calendar" : "video.fill")
+                    Image(systemName: iconName)
                         .font(.system(size: 8.5, weight: .semibold))
                         .opacity(0.6)
-                        .accessibilityLabel(event.isPartner ? "partner's block" : event.conference.map { "\($0.service.label) call" } ?? "")
+                        .accessibilityLabel(iconLabel)
                     Text(event.displayTitle)
                         .font(compact ? Font.system(size: 11.5, weight: .medium) : Theme.eventLabel)
                         .lineLimit(compact ? 1 : 2)
@@ -62,6 +62,22 @@ struct ExternalEventView: View {
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
+    private var iconName: String {
+        switch event.origin {
+        case .partner: "person"
+        case .partnerCalendar: "calendar"
+        case .calendar: event.conference == nil ? "calendar" : "video.fill"
+        }
+    }
+
+    private var iconLabel: String {
+        switch event.origin {
+        case .partner: "partner's block"
+        case .partnerCalendar: "partner's calendar event"
+        case .calendar: event.conference.map { "\($0.service.label) call" } ?? ""
+        }
+    }
+
     private var timeText: String {
         switch (event.continuesFromPreviousDay, event.continuesIntoNextDay) {
         case (true, true): "All day"
@@ -78,11 +94,40 @@ struct ExternalEventPopover: View {
     @Environment(CalendarService.self) private var calendarService
 
     var body: some View {
-        if case .partner(let name, let note) = event.origin {
-            partnerBody(name: name, note: note)
-        } else {
-            calendarBody
+        switch event.origin {
+        case .partner(let name, let note): partnerBody(name: name, note: note)
+        case .partnerCalendar(let name): partnerCalendarBody(name: name)
+        case .calendar: calendarBody
         }
+    }
+
+    /// A partner's calendar event: details only, since it lives in their calendar account.
+    private func partnerCalendarBody(name: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Circle().fill(event.color).frame(width: 10, height: 10)
+                Text(event.displayTitle).font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.ink)
+            }
+            Text(event.isAllDay ? "All day" : TimeFormat.range(event.startMinutes, event.endMinutes))
+                .font(Theme.body).foregroundStyle(Theme.ink)
+            if let link = event.conference {
+                Label(link.shortText, systemImage: "video")
+                    .font(Theme.caption).foregroundStyle(Theme.inkMuted)
+                    .lineLimit(1).truncationMode(.middle)
+                    .help(link.url.absoluteString)
+            }
+            if let loc = event.location, !loc.isEmpty, event.conference?.url.absoluteString != loc.trimmingCharacters(in: .whitespacesAndNewlines) {
+                Label(loc, systemImage: "mappin.and.ellipse").font(Theme.caption).foregroundStyle(Theme.inkMuted)
+            }
+            Text(event.calendarTitle)
+                .font(Theme.caption).foregroundStyle(Theme.inkMuted)
+            Text("From \(name)’s calendar, through your shared folder. Only they can change it.")
+                .font(.system(size: 11)).foregroundStyle(Theme.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 280)
+        .background(Theme.surfaceRaised)
     }
 
     private func partnerBody(name: String, note: String) -> some View {

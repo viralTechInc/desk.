@@ -23,7 +23,10 @@ struct CalendarInfo: Identifiable, Hashable, Sendable {
 /// Who owns a read-only timeline entry.
 enum ExternalOrigin: Hashable, Sendable {
     case calendar
+    /// A block from a partner's shared Desk.
     case partner(name: String, note: String)
+    /// A calendar event from a partner's Mac, relayed through their shared Desk.
+    case partnerCalendar(name: String)
 }
 
 /// One day's slice of a system calendar event. External events are read-only and are

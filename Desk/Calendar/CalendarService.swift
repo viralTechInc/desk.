@@ -20,6 +20,9 @@ final class CalendarService {
     private(set) var calendars: [CalendarInfo] = []
     /// Bumped whenever the system calendar database or the selection changes.
     private(set) var revision = 0
+    /// Called after every change to access, calendars or events (the app republishes the
+    /// shared file from it).
+    @ObservationIgnored var onChange: (@MainActor () -> Void)?
     private(set) var lastError: String?
 
     @ObservationIgnored private let store = EKEventStore()
@@ -91,7 +94,7 @@ final class CalendarService {
     // MARK: Calendars & selection
 
     func refreshCalendars() {
-        guard access == .authorized else { calendars = []; revision &+= 1; return }
+        guard access == .authorized else { calendars = []; revision &+= 1; onChange?(); return }
         store.refreshSourcesIfNecessary()
         calendars = store.calendars(for: .event).map { cal in
             let source = cal.source
@@ -102,7 +105,7 @@ final class CalendarService {
                 allowsModifications: cal.allowsContentModifications)
         }
         .sorted { ($0.sourceTitle, $0.title) < ($1.sourceTitle, $1.title) }
-        revision &+= 1
+        revision &+= 1; onChange?()
     }
 
     private static func kind(of source: EKSource?) -> String {
@@ -140,13 +143,13 @@ final class CalendarService {
     func setEnabled(_ enabled: Bool, for calendar: CalendarInfo) {
         if enabled { disabledIDs.remove(calendar.id) } else { disabledIDs.insert(calendar.id) }
         defaults.set(Array(disabledIDs).sorted(), forKey: Keys.disabled)
-        revision &+= 1
+        revision &+= 1; onChange?()
     }
 
     func setAll(enabled: Bool) {
         disabledIDs = enabled ? [] : Set(calendars.map(\.id))
         defaults.set(Array(disabledIDs).sorted(), forKey: Keys.disabled)
-        revision &+= 1
+        revision &+= 1; onChange?()
     }
 
     // MARK: Events

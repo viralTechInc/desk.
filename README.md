@@ -155,14 +155,15 @@ no account: the folder's own sync moves two small files.
 1. **Settings (⌘,) → Sharing → Choose Shared Folder…** and pick that folder; set *My name*.
 2. Your partner does the same in their Desk, choosing the same folder.
 3. A **Mine / <name>** switch appears in the toolbar (⇧⌘P). Their desk opens exactly as they
-   see it: priorities, day and week brain dumps, routines and blocks, in Day or Week view —
+   see it: priorities, day and week brain dumps, routines, blocks and — unless they turned
+   *Share my calendar events* off — the events on their Mac's calendars, in Day or Week view,
    all read-only. The line under the date says how fresh the copy is.
-4. On your own schedule their blocks appear **outlined** with a person icon, like calendar
-   events, so you can see when they're busy. Click one for its note. Turn this off under
+4. On your own schedule their blocks and calendar events appear **outlined**, like calendar
+   events, so you can see when they're busy. Click one for its details. Turn this off under
    Settings → Sharing if you'd rather only switch over.
 
-Each Desk writes one file, `<name>.desk.json` (the same content as a backup), a moment after
-every change and only when something changed; it reads the others' files whenever the folder
+Each Desk writes one file, `<name>.desk.json` (the same content as a backup, plus a few weeks
+of calendar events around today), a moment after every change and only when something changed; it reads the others' files whenever the folder
 changes, on activation, and every 20 seconds. A Desk never writes another Desk's file, so
 nothing you do can alter your partner's planner. *Stop Sharing* removes your file. Expect a
 few seconds to a minute of delay (iCloud Drive's), longer if a Mac is asleep.

@@ -30,6 +30,18 @@ final class SharingService {
     var showPartnerBlocks: Bool {
         didSet { defaults.set(showPartnerBlocks, forKey: Keys.showPartnerBlocks); revision &+= 1 }
     }
+    /// Put this Mac's calendar events (the enabled calendars, a few weeks around today) in
+    /// the shared file so the partner sees them too.
+    var shareCalendarEvents: Bool {
+        didSet {
+            guard shareCalendarEvents != oldValue else { return }
+            defaults.set(shareCalendarEvents, forKey: Keys.shareCalendarEvents)
+            lastWritten = nil
+            schedulePublish(after: .milliseconds(300))
+        }
+    }
+    /// Supplies the calendar events to share; the app wires it to `CalendarService`.
+    @ObservationIgnored var eventProvider: (@MainActor (ClosedRange<LocalDate>) -> [ExternalEvent])?
     private(set) var partners: [PartnerDesk] = []
     private(set) var lastPublished: Date?
     private(set) var lastError: String?
@@ -55,7 +67,11 @@ final class SharingService {
         static let installID = "sharing.installID"
         static let showPartnerBlocks = "sharing.showPartnerBlocks"
         static let ownFileName = "sharing.ownFileName"
+        static let shareCalendarEvents = "sharing.shareCalendarEvents"
     }
+
+    /// Days of calendar events written to the file, around today.
+    static let eventWindow = (behind: 7, ahead: 42)
 
     /// `folderOverride` (tests, scripted screenshots) uses that folder directly and never
     /// touches the saved bookmark.
@@ -73,6 +89,7 @@ final class SharingService {
         let name = savedName.isEmpty ? Self.defaultName() : savedName
         displayName = name
         showPartnerBlocks = defaults.object(forKey: Keys.showPartnerBlocks) as? Bool ?? true
+        shareCalendarEvents = defaults.object(forKey: Keys.shareCalendarEvents) as? Bool ?? true
         ownFileName = defaults.string(forKey: Keys.ownFileName) ?? SharedDeskFile.fileName(for: name)
         if let folderOverride {
             activate(folderOverride, scoped: false)
@@ -195,7 +212,8 @@ final class SharingService {
         publishTask?.cancel()
         publishTask = nil
         guard let folderURL else { return }
-        let file = SharedDeskFile(installID: installID, name: displayName, updatedAt: Date(), document: store.backupDocument())
+        let file = SharedDeskFile(installID: installID, name: displayName, updatedAt: Date(),
+                                  document: store.backupDocument(), events: eventsToShare())
         do {
             // Compare without the timestamp so an unchanged planner never churns the sync.
             var probe = file
@@ -211,6 +229,15 @@ final class SharingService {
         } catch {
             lastError = "Couldn't write to the shared folder: \(error.localizedDescription)"
         }
+    }
+
+    /// This Mac's calendar events for the shared window, or nil when not sharing them.
+    func eventsToShare() -> [SharedEvent]? {
+        guard shareCalendarEvents, let eventProvider else { return nil }
+        let cal = store.calendar
+        let today = cal.today()
+        let range = cal.adding(days: -Self.eventWindow.behind, to: today)...cal.adding(days: Self.eventWindow.ahead, to: today)
+        return eventProvider(range).filter { !$0.isPartner }.map(SharedEvent.init)
     }
 
     private func removeOwnFile(named name: String) {
@@ -293,10 +320,15 @@ final class SharingService {
             watcher = source
         }
         pollTask = Task { [weak self] in
+            var ticks = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(20))
                 guard !Task.isCancelled else { return }
                 self?.reload()
+                // Every ten minutes: roll the calendar window forward and catch calendar
+                // changes that arrived without a notification. A no-op when nothing changed.
+                ticks += 1
+                if ticks % 30 == 0 { self?.publishNow() }
             }
         }
     }

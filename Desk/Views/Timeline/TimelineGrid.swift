@@ -58,11 +58,13 @@ struct TimelineGrid: View {
     static let topInset: CGFloat = 14
     static let bottomInset: CGFloat = 14
 
-    /// My blocks, my calendars and (outlined) my partners' blocks — or, for a partner's
-    /// page, exactly their blocks.
+    /// My blocks, my calendars and (outlined) my partners' blocks and events — or, for a
+    /// partner's page, exactly their blocks and the calendar events they share.
     private func gather(range: ClosedRange<LocalDate>) -> (entries: [ScheduleEntry], allDay: [ExternalEvent]) {
         if let partner {
-            return (partner.occurrences(in: range, calendar: appState.calendar).map(ScheduleEntry.block), [])
+            let blocks = partner.occurrences(in: range, calendar: appState.calendar)
+            let external = partner.calendarEvents(in: range, calendar: appState.calendar)
+            return (ScheduleMerger.timedEntries(blocks: blocks, external: external), ScheduleMerger.allDay(external))
         }
         let events = store.occurrences(in: range)
         let external = calendarService.events(in: range, calendar: appState.calendar)

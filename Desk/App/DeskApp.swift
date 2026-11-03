@@ -51,6 +51,11 @@ final class AppModel {
         self.sharing = SharingService(store: store, defaults: shareDefaults, folderOverride: shareFolder)
         self.feed = ScheduleFeed(store: store, calendarService: calendarService, appState: appState)
         self.startupError = startupError
+        // Calendar events ride along in the shared file and follow calendar changes.
+        sharing.eventProvider = { [calendarService, appState] range in
+            calendarService.events(in: range, calendar: appState.calendar)
+        }
+        calendarService.onChange = { [sharing] in sharing.schedulePublish() }
         shortcuts.install()
         #if DEBUG
         DebugHooks.install(model: self)

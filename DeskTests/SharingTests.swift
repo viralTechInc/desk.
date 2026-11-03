@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftUI
 @testable import Desk
 
 @Suite("Sharing", .serialized)
@@ -56,6 +57,73 @@ struct SharingTests {
         #expect(events.filter(\.isPartner).count == events.count)
         #expect(events.first?.calendarTitle == "Émilie’s desk")
         #expect(events.first?.origin == .partner(name: "Émilie", note: ""))
+    }
+
+    private func dentist(on date: LocalDate) -> ExternalEvent {
+        ExternalEvent(id: "ext:1:\(date.key)", eventIdentifier: "1", date: date, title: "Dentist",
+                      startMinutes: 9 * 60, endMinutes: 10 * 60, isAllDay: false,
+                      continuesFromPreviousDay: false, continuesIntoNextDay: false,
+                      calendarID: "work", calendarTitle: "Work", sourceTitle: "Google", color: .blue,
+                      location: "Clinic", isBusy: true,
+                      conference: ConferenceLinkDetector.detect(url: URL(string: "https://meet.google.com/abc-defg-hij"), location: nil, notes: nil))
+    }
+
+    @Test func calendarEventsTravelWithTheFile() throws {
+        let store = try TestSupport.store()
+        let file = SharedDeskFile(installID: "her", name: "Émilie", updatedAt: Date(),
+                                  document: store.backupDocument(), events: [SharedEvent(dentist(on: monday))])
+        let data = try BackupDocument.encoder().encode(file)
+        let decoded = try BackupDocument.decoder().decode(SharedDeskFile.self, from: data)
+        let partner = PartnerDesk(file: decoded, url: URL(fileURLWithPath: "/tmp/x.desk.json"))
+
+        let onHerPage = partner.calendarEvents(in: monday...monday, calendar: cal)
+        #expect(onHerPage.count == 1)
+        let e = try #require(onHerPage.first)
+        #expect(e.title == "Dentist")
+        #expect(e.isPartner)
+        #expect(e.origin == .partnerCalendar(name: "Émilie"))
+        #expect(e.calendarTitle == "Émilie’s Work")
+        #expect(e.location == "Clinic")
+        #expect(e.conference?.service == .googleMeet)
+        #expect(e.color.sharedHex == Color.blue.sharedHex)
+        #expect(partner.calendarEvents(in: TestSupport.d(2026, 11, 3)...TestSupport.d(2026, 11, 3), calendar: cal).isEmpty)
+        // Over my own schedule the event rides along with their blocks.
+        #expect(partner.events(in: monday...monday, calendar: cal).map(\.id) == onHerPage.map(\.id))
+    }
+
+    @Test func filesWithoutEventsStillRead() throws {
+        // Written by a Desk from before calendar sharing: no "events" key at all.
+        let store = try TestSupport.store()
+        let old = SharedDeskFile(installID: "her", name: "Émilie", updatedAt: Date(), document: store.backupDocument())
+        var json = try JSONSerialization.jsonObject(with: BackupDocument.encoder().encode(old)) as! [String: Any]
+        json["events"] = nil
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let decoded = try BackupDocument.decoder().decode(SharedDeskFile.self, from: data)
+        #expect(decoded.events == nil)
+        #expect(PartnerDesk(file: decoded, url: URL(fileURLWithPath: "/tmp/x.desk.json")).sharedEvents.isEmpty)
+    }
+
+    @Test func publishSharesCalendarEventsOnlyWhenEnabled() throws {
+        let folder = try tempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = try TestSupport.store()
+        let mine = SharingService(store: store, defaults: defaults(), folderOverride: folder)
+        mine.displayName = "Louis"
+        var askedRanges: [ClosedRange<LocalDate>] = []
+        mine.eventProvider = { range in askedRanges.append(range); return [self.dentist(on: range.lowerBound)] }
+
+        mine.publishNow()
+        let own = folder.appendingPathComponent("louis.desk.json")
+        var file = try BackupDocument.decoder().decode(SharedDeskFile.self, from: Data(contentsOf: own))
+        #expect(file.events?.count == 1)
+        #expect(file.events?.first?.title == "Dentist")
+        let today = cal.today()
+        #expect(askedRanges.last == cal.adding(days: -SharingService.eventWindow.behind, to: today)...cal.adding(days: SharingService.eventWindow.ahead, to: today))
+
+        mine.shareCalendarEvents = false
+        mine.publishNow()
+        file = try BackupDocument.decoder().decode(SharedDeskFile.self, from: Data(contentsOf: own))
+        #expect(file.events == nil)
     }
 
     @Test func publishWritesOwnFileAndReadsPartners() async throws {

@@ -33,7 +33,9 @@ struct SharingSettingsView: View {
                         Spacer()
                         Button("Stop Sharing", role: .destructive) { sharing.stopSharing() }
                     }
-                    Text("Desk keeps one file in that folder — \(sharing.ownFileURL?.lastPathComponent ?? "") — with your notes, blocks and routines, rewritten a moment after you change anything. Nothing else leaves this Mac.")
+                    Toggle("Share my calendar events", isOn: $sharing.shareCalendarEvents)
+                        .accessibilityIdentifier("sharing.calendar")
+                    Text("Desk keeps one file in that folder — \(sharing.ownFileURL?.lastPathComponent ?? "") — with your notes, blocks and routines\(sharing.shareCalendarEvents ? ", plus the events on your enabled calendars for the weeks around today," : "") rewritten a moment after anything changes. Nothing else leaves this Mac.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
@@ -75,8 +77,8 @@ struct SharingSettingsView: View {
                             }
                         }
                     }
-                    Toggle("Show partners' blocks on my schedule", isOn: $sharing.showPartnerBlocks)
-                    Text("Their blocks appear outlined next to yours, like calendar events, so you can see when they're busy. Nothing you do can change them.")
+                    Toggle("Show partners' blocks and events on my schedule", isOn: $sharing.showPartnerBlocks)
+                    Text("Their blocks and calendar events appear outlined next to yours, so you can see when they're busy. Nothing you do can change them.")
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
