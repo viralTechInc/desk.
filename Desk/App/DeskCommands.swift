@@ -62,6 +62,11 @@ struct DeskCommands: Commands {
                 .keyboardShortcut("b", modifiers: [.command, .option])
             Button("Focus First Priority") { model.appState.requestFocus(.firstPriority) }
                 .keyboardShortcut("p", modifiers: [.command, .option])
+            if TaskExtractor.isAvailable {
+                Divider()
+                Button("Find Tasks in Brain Dump") { model.appState.findTasksInBrainDump() }
+                    .keyboardShortcut("t", modifiers: [.command, .option])
+            }
         }
         CommandGroup(replacing: .help) {
             Button("Keyboard Shortcuts") { model.appState.showShortcutHelp.toggle() }

@@ -62,6 +62,16 @@ final class AppState {
     var confirmDemoData = false
     var confirmRemoveDemoData = false
 
+    /// Set by Notebook ▸ Find Tasks in Brain Dump; the day brain dump's sparkle button opens
+    /// its popover and clears it (also when it only appears after a switch to the day view).
+    var pendingTaskSuggestions = false
+
+    func findTasksInBrainDump() {
+        showPartner(nil)
+        show(.day)
+        pendingTaskSuggestions = true
+    }
+
     /// Incremented to request focus; the target says where.
     private(set) var focusRequest: (target: FocusTarget, token: Int) = (.brainDump, 0)
 

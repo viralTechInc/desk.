@@ -20,6 +20,10 @@ struct NotebookPanel: View {
                             .fixedSize()
                         Spacer(minLength: 0)
                         TaskCount(tasks: editor.tasks)
+                        TaskSuggestionsButton(
+                            notes: editor.brainDump,
+                            tasks: Binding(get: { editor.tasks }, set: { editor.tasks = $0 }),
+                            idPrefix: "task", answersMenuCommand: true)
                     }
                     .padding(.bottom, 4)
                     BrainDumpEditor(editor: editor)
@@ -39,6 +43,10 @@ struct NotebookPanel: View {
                             .lineLimit(1)
                         Spacer(minLength: 0)
                         TaskCount(tasks: weekEditor.tasks)
+                        TaskSuggestionsButton(
+                            notes: weekEditor.brainDump,
+                            tasks: Binding(get: { weekEditor.tasks }, set: { weekEditor.tasks = $0 }),
+                            idPrefix: "weekTask")
                     }
                     .padding(.bottom, 4)
                     WeekBrainDumpEditor(editor: weekEditor)

@@ -49,6 +49,7 @@ enum DebugHooks {
             case "help": state.showShortcutHelp = true
             case "escape": state.escape()
             case "focusBrain": state.requestFocus(.brainDump)
+            case "findTasks": state.findTasksInBrainDump()
             case "focusPriority": state.requestFocus(.firstPriority)
             case "undo": model.actions.undo()
             case "redo": model.actions.redo()
@@ -111,7 +112,8 @@ enum DebugHooks {
                 synthesizeClick(at: CGPoint(x: x, y: y))
             }
         case "key":
-            if let chars = info["value"], let window = mainWindow {
+            // Key window first, so popovers (e.g. task suggestions) get Return / Esc.
+            if let chars = info["value"], let window = NSApp.keyWindow ?? mainWindow {
                 let flags: NSEvent.ModifierFlags = info["cmd"] == "1" ? [.command] : []
                 let code: UInt16 = chars == "esc" ? 53 : (chars == "return" ? 36 : (chars == "delete" ? 51 : 0))
                 let text = chars == "esc" ? "\u{1B}" : (chars == "return" ? "\r" : (chars == "delete" ? "\u{7F}" : chars))

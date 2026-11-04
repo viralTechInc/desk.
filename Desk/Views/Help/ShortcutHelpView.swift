@@ -11,7 +11,7 @@ struct ShortcutHelpView: View {
         ("Write", [
             ("B", "Focus brain dump"), ("P", "Focus first priority"),
             ("Return", "Next priority line (adds one at the end)"),
-        ]),
+        ] + (TaskExtractor.isAvailable ? [("⌥⌘T", "Find tasks in brain dump")] : [])),
         ("Schedule", [
             ("A", "Add a block"), ("Drag on grid", "Create a block"), ("Drag block", "Move it (across days in Week)"),
             ("Drag bottom edge", "Resize"), ("Click block", "Edit"), ("Right‑click", "Duplicate, skip, delete"),

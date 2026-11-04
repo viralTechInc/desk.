@@ -1,7 +1,7 @@
 // Posts debug commands to a running DEBUG build of Desk.
 // Build once:  swiftc -O scripts/desk-debug.swift -o build/desk-debug
 // Usage:       build/desk-debug screenshot /tmp/shot.png
-//              build/desk-debug action week | day | today | tomorrow | next | prev | addBlock | demo | help | escape | undo | redo | quit
+//              build/desk-debug action week | day | today | tomorrow | next | prev | addBlock | demo | help | escape | undo | redo | findTasks | quit
 //              build/desk-debug date 2026-11-02
 //              build/desk-debug resize 1440 900
 //              build/desk-debug type "some text"
