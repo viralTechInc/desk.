@@ -31,6 +31,26 @@ References folder (`references/image.jpg`, `references/weekly-plan.pdf`) was **n
 - Unexplained once: in one scripted run the own file came out as `change.desk.json` (display name "change" in the
   Settings text field) — not reproduced in two identical repeats.
 
+## Task lists + pencil over elapsed time — 2026-11-03
+- `TaskItem` (`Desk/Domain/TaskItem.swift`): id/text/isDone/doneAt. Stored as JSON in a new optional
+  `tasksRaw` column on `DailyPage` and `WeeklyPage` (lightweight migration, like `brainDumpRaw`); records
+  carry `tasks` with `decodeIfPresent` so older backups / partner files still load. `backupVersion` stays 1.
+- `TaskListEditor` sits above the notes in both brain dumps (`BrainDumpPage`): check circle (accent fill,
+  strikethrough when done), Return inserts a line below, Backspace on an empty line removes it, blank lines
+  are pruned on focus change and on any other list edit, "Add a task…" line at the bottom, "n of m done"
+  beside the section label. `CappedTaskList` sizes to content and scrolls past ~55 % of the column.
+  Partner pages show a read-only `TaskListReader`.
+- Elapsed time: `TimelineView(.everyMinute)` inside the grid; `ElapsedShade` draws a faint wash + diagonal
+  pencil strokes (`PencilHatch`, deterministic wobble per column) over earlier days and today up to now;
+  blocks/events that ended earlier are desaturated (`pencilledOut`). Off switch: footer icon bottom-right
+  (`pencil.and.scribble` / `pencil.slash`), View menu, Settings ▸ Schedule; `AppSettings.shadeElapsed`.
+- Debug: `task <text> [done] [week]`, `responder <path>`, `key delete`, `action toggleShade`; `type` now
+  falls back to the main window when the scripted instance isn't key. Posted key events do NOT reach
+  SwiftUI `onKeyPress`; Backspace-on-empty is covered by `testTaskListKeyboardFlow` (XCUITest).
+- Screenshots now come from an unsandboxed build (`build/NoSandboxDD`, built with
+  `CODE_SIGN_ENTITLEMENTS= CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=`): this shell
+  cannot read or write the app's container, so PNGs go to a normal folder instead.
+
 ## Calendar integration (EventKit) — 2026-11-01, second request
 - `Desk/Calendar/CalendarService.swift`: `EKEventStore`, `requestFullAccessToEvents()`, authorization states
   (not determined / denied / restricted / write-only / authorized), calendars grouped by `EKSource`, per-calendar

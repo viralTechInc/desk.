@@ -193,6 +193,14 @@ struct FooterBar: View {
             SaveIndicator(state: store.saveState)
                 .frame(minWidth: 90, alignment: .trailing)
 
+            Button { settings.shadeElapsed.toggle() } label: {
+                Image(systemName: settings.shadeElapsed ? "pencil.and.scribble" : "pencil.slash")
+            }
+            .buttonStyle(IconButtonStyle())
+            .help(settings.shadeElapsed ? "Stop pencilling over hours that have passed" : "Pencil over hours that have passed")
+            .accessibilityLabel(settings.shadeElapsed ? "Stop shading past hours" : "Shade past hours")
+            .accessibilityIdentifier("toolbar.shadeElapsed")
+
             Button { settings.toggleAppearance() } label: {
                 Image(systemName: scheme == .dark ? "sun.max" : "moon")
             }

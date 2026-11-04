@@ -189,8 +189,13 @@ struct PartnerNotebookPanel: View {
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    SectionLabel(text: "Brain dump")
-                        .padding(.bottom, 4)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        SectionLabel(text: "Brain dump").fixedSize()
+                        Spacer(minLength: 0)
+                        TaskCount(tasks: page?.tasks ?? [])
+                    }
+                    .padding(.bottom, 4)
+                    TaskListReader(tasks: page?.tasks ?? [])
                     NotesReader(text: page?.brainDump ?? "", hint: "Nothing written for this day.")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -203,8 +208,11 @@ struct PartnerNotebookPanel: View {
                         SectionLabel(text: "Week brain dump").fixedSize()
                         Text(appState.calendar.weekRangeString(containing: date))
                             .font(Theme.caption).foregroundStyle(Theme.inkFaint).lineLimit(1)
+                        Spacer(minLength: 0)
+                        TaskCount(tasks: week?.tasks ?? [])
                     }
                     .padding(.bottom, 4)
+                    TaskListReader(tasks: week?.tasks ?? [])
                     NotesReader(text: week?.brainDump ?? "", hint: "Nothing written for this week.")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }

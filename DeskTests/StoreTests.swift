@@ -244,6 +244,49 @@ struct StoreTests {
         #expect(record.brainDump == "" && record.intentions == ["Rest"])
     }
 
+    @Test func taskListsPersistToggleAndPrune() throws {
+        let store = try TestSupport.store()
+        let editor = store.editor(for: monday)
+        let call = editor.tasks.addTask("Call mom")
+        editor.tasks.addTask("Pay rent")
+        editor.tasks.addTask("")                       // a line still being typed is not stored
+        store.flush()
+        let saved = try #require(store.pageRecord(for: monday))
+        #expect(saved.tasks.map(\.text) == ["Call mom", "Pay rent"])
+        #expect(saved.tasks.allSatisfy { !$0.isDone })
+
+        editor.tasks.toggle(id: call.id)
+        store.flush()
+        #expect(store.pageRecord(for: monday)?.tasks.first?.isDone == true)
+        #expect(store.pageRecord(for: monday)?.tasks.first?.doneAt != nil)
+
+        // Reopen through a fresh store on the same container: order, state and IDs survive.
+        let reopened = PlannerStore(container: store.container, calendar: cal)
+        let e2 = reopened.editor(for: monday)
+        #expect(e2.tasks.map(\.id) == [call.id, editor.tasks[1].id])
+        #expect(e2.tasks.doneCount == 1)
+
+        // Removing every task leaves a blank page, which is pruned.
+        e2.tasks.remove(id: call.id)
+        e2.tasks.remove(id: e2.tasks[0].id)
+        reopened.flush()
+        #expect(reopened.pageRecord(for: monday) == nil)
+
+        // Week lists work the same way and ride along in backups.
+        let week = store.weekEditor(for: monday)
+        week.tasks.addTask("Renew passport")
+        store.flush()
+        let data = try store.exportBackup()
+        let fresh = try TestSupport.store()
+        try fresh.importBackup(try PlannerStore.decodeBackup(data))
+        #expect(fresh.weekEditor(for: monday).tasks.map(\.text) == ["Renew passport"])
+
+        // Pages written before task lists existed still decode.
+        let legacy = Data(#"{"date":"2026-11-02","priorities":[],"brainDump":"x","createdAt":"2026-11-02T12:00:00Z","updatedAt":"2026-11-02T12:00:00Z"}"#.utf8)
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        #expect(try decoder.decode(PageRecord.self, from: legacy).tasks.isEmpty)
+    }
+
     @Test func removeDemoDataLeavesUserContent() throws {
         let store = try TestSupport.store()
         store.createBlock(BlockDraft(title: "Untitled", date: monday, startMinutes: 495, endMinutes: 555))

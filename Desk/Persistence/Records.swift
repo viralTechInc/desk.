@@ -7,29 +7,53 @@ struct PageRecord: Codable, Hashable, Sendable {
     var date: LocalDate
     var priorities: [String]
     var brainDump: String
+    var tasks: [TaskItem]
     var createdAt: Date
     var updatedAt: Date
+
+    init(date: LocalDate, priorities: [String], brainDump: String, tasks: [TaskItem] = [], createdAt: Date, updatedAt: Date) {
+        self.date = date
+        self.priorities = priorities
+        self.brainDump = brainDump
+        self.tasks = tasks
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    // Backups written before task lists existed have no `tasks` key.
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        date = try c.decode(LocalDate.self, forKey: .date)
+        priorities = try c.decode([String].self, forKey: .priorities)
+        brainDump = try c.decode(String.self, forKey: .brainDump)
+        tasks = try c.decodeIfPresent([TaskItem].self, forKey: .tasks) ?? []
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+    }
 }
 
 struct WeekRecord: Codable, Hashable, Sendable {
     var weekStart: LocalDate
     var intentions: [String]
     var brainDump: String
+    var tasks: [TaskItem]
     var updatedAt: Date
 
-    init(weekStart: LocalDate, intentions: [String], brainDump: String = "", updatedAt: Date) {
+    init(weekStart: LocalDate, intentions: [String], brainDump: String = "", tasks: [TaskItem] = [], updatedAt: Date) {
         self.weekStart = weekStart
         self.intentions = intentions
         self.brainDump = brainDump
+        self.tasks = tasks
         self.updatedAt = updatedAt
     }
 
-    // Backups written before the week brain dump existed have no `brainDump` key.
+    // Backups written before the week brain dump / task list existed lack those keys.
     init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         weekStart = try c.decode(LocalDate.self, forKey: .weekStart)
         intentions = try c.decode([String].self, forKey: .intentions)
         brainDump = try c.decodeIfPresent(String.self, forKey: .brainDump) ?? ""
+        tasks = try c.decodeIfPresent([TaskItem].self, forKey: .tasks) ?? []
         updatedAt = try c.decode(Date.self, forKey: .updatedAt)
     }
 }
@@ -112,20 +136,20 @@ struct BackupDocument: Codable, Sendable {
 
 extension DailyPage {
     var record: PageRecord {
-        PageRecord(date: date, priorities: priorities, brainDump: brainDump, createdAt: createdAt, updatedAt: updatedAt)
+        PageRecord(date: date, priorities: priorities, brainDump: brainDump, tasks: tasks, createdAt: createdAt, updatedAt: updatedAt)
     }
     convenience init(record r: PageRecord) {
-        self.init(dateKey: r.date.key, priorities: r.priorities, brainDump: r.brainDump, now: r.createdAt)
+        self.init(dateKey: r.date.key, priorities: r.priorities, brainDump: r.brainDump, tasks: r.tasks, now: r.createdAt)
         self.updatedAt = r.updatedAt
     }
 }
 
 extension WeeklyPage {
     var record: WeekRecord {
-        WeekRecord(weekStart: LocalDate(key: weekStartKey)!, intentions: intentions, brainDump: brainDump, updatedAt: updatedAt)
+        WeekRecord(weekStart: LocalDate(key: weekStartKey)!, intentions: intentions, brainDump: brainDump, tasks: tasks, updatedAt: updatedAt)
     }
     convenience init(record r: WeekRecord) {
-        self.init(weekStartKey: r.weekStart.key, intentions: r.intentions, brainDump: r.brainDump, now: r.updatedAt)
+        self.init(weekStartKey: r.weekStart.key, intentions: r.intentions, brainDump: r.brainDump, tasks: r.tasks, now: r.updatedAt)
     }
 }
 

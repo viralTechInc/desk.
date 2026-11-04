@@ -45,6 +45,8 @@ final class AppSettings {
     var firstWeekday: Weekday { didSet { defaults.set(firstWeekday.rawValue, forKey: Keys.firstWeekday) } }
     var showWeeklyIntentions: Bool { didSet { defaults.set(showWeeklyIntentions, forKey: Keys.showIntentions) } }
     var hourHeight: Double { didSet { defaults.set(hourHeight, forKey: Keys.hourHeight) } }
+    /// Pencil-hatch the hours and days that have passed and grey out their blocks.
+    var shadeElapsed: Bool { didSet { defaults.set(shadeElapsed, forKey: Keys.shadeElapsed) } }
 
     enum Keys {
         static let appearance = "appearance"
@@ -53,6 +55,7 @@ final class AppSettings {
         static let firstWeekday = "firstWeekday"
         static let showIntentions = "showWeeklyIntentions"
         static let hourHeight = "hourHeight"
+        static let shadeElapsed = "shadeElapsed"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -66,6 +69,7 @@ final class AppSettings {
         firstWeekday = Weekday(rawValue: defaults.object(forKey: Keys.firstWeekday) as? Int ?? 2) ?? .monday
         showWeeklyIntentions = defaults.object(forKey: Keys.showIntentions) as? Bool ?? true
         hourHeight = defaults.object(forKey: Keys.hourHeight) as? Double ?? 0
+        shadeElapsed = defaults.object(forKey: Keys.shadeElapsed) as? Bool ?? true
     }
 
     /// Minimum hour height when fitting; below this the grid scrolls instead.

@@ -150,7 +150,42 @@ final class DeskUITests: XCTestCase {
         XCTAssertTrue((app.textViews["brainDump"].firstMatch.value as? String)?.contains("First thought\n\n\tNested idea") == true)
     }
 
+    func testTaskListKeyboardFlow() throws {
+        let add = app.textFields["task.add"].firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.click()
+        app.typeText("Buy milk\r")
+        let first = app.textFields["task.1"].firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 3))
+        XCTAssertEqual(first.value as? String, "Buy milk")
+        // Return keeps the cursor on the add line, so a second task follows straight away.
+        app.typeText("Water plants\r")
+        XCTAssertTrue(waitUntil { (self.app.textFields["task.2"].firstMatch.value as? String) == "Water plants" })
+
+        // Return on an existing task opens a blank line under it; Backspace on it removes it again.
+        first.click()
+        app.typeText("\r")
+        XCTAssertTrue(waitUntil { self.app.textFields["task.3"].exists })
+        XCTAssertEqual(app.textFields["task.2"].firstMatch.value as? String, "")
+        app.typeKey(.delete, modifierFlags: [])
+        XCTAssertTrue(waitUntil { !self.app.textFields["task.3"].exists })
+        XCTAssertEqual(app.textFields["task.2"].firstMatch.value as? String, "Water plants")
+
+        // The check circle marks a task done and the count follows.
+        app.buttons["task.1.check"].firstMatch.click()
+        XCTAssertTrue(app.staticTexts["1 of 2 tasks done"].waitForExistence(timeout: 3))
+
+        // Everything survives a relaunch on the same store.
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(waitUntil(timeout: 10) { (self.app.textFields["task.1"].firstMatch.value as? String) == "Buy milk" })
+        XCTAssertTrue(app.staticTexts["1 of 2 tasks done"].waitForExistence(timeout: 3))
+    }
+
     func testBlockCreatedInWeekAppearsInDay() throws {
+        // On tomorrow the new block lands at 09:00; on today it would land at "now + 30 min",
+        // which in the evening is exactly where `clickEmptyGrid` clicks.
+        app.typeKey("t", modifierFlags: [.command, .shift])
         clickEmptyGrid()
         app.typeKey("a", modifierFlags: [])   // Add block on the selected day
         let title = app.textFields["blockEditor.title"]

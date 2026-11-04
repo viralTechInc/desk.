@@ -11,22 +11,31 @@ final class DailyPage {
     @Attribute(.unique) var dateKey: Int
     var priorities: [String]
     var brainDump: String
+    /// The brain dump's task list as JSON (`[TaskItem]`); NULL when empty or on rows written
+    /// before the column existed. See `tasks`.
+    var tasksRaw: String?
     var createdAt: Date
     var updatedAt: Date
 
-    init(dateKey: Int, priorities: [String] = [], brainDump: String = "", now: Date = Date()) {
+    init(dateKey: Int, priorities: [String] = [], brainDump: String = "", tasks: [TaskItem] = [], now: Date = Date()) {
         self.dateKey = dateKey
         self.priorities = priorities
         self.brainDump = brainDump
+        self.tasksRaw = tasks.storageJSON
         self.createdAt = now
         self.updatedAt = now
     }
 
     var date: LocalDate { LocalDate(key: dateKey)! }
 
+    var tasks: [TaskItem] {
+        get { [TaskItem].fromStorage(tasksRaw) }
+        set { tasksRaw = newValue.storageJSON }
+    }
+
     /// A page with no user text is considered empty and may be pruned.
     var isBlank: Bool {
-        brainDump.isEmpty && priorities.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+        brainDump.isEmpty && tasksRaw == nil && priorities.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
     }
 }
 
@@ -37,12 +46,15 @@ final class WeeklyPage {
     /// Freeform notes for the whole week, shown beside the day's brain dump. Stored optional
     /// so rows written before the column existed (NULL) still load; see `brainDump`.
     var brainDumpRaw: String?
+    /// The week brain dump's task list as JSON (`[TaskItem]`), NULL when empty.
+    var tasksRaw: String?
     var updatedAt: Date
 
-    init(weekStartKey: Int, intentions: [String] = [], brainDump: String = "", now: Date = Date()) {
+    init(weekStartKey: Int, intentions: [String] = [], brainDump: String = "", tasks: [TaskItem] = [], now: Date = Date()) {
         self.weekStartKey = weekStartKey
         self.intentions = intentions
         self.brainDumpRaw = brainDump.isEmpty ? nil : brainDump
+        self.tasksRaw = tasks.storageJSON
         self.updatedAt = now
     }
 
@@ -51,8 +63,13 @@ final class WeeklyPage {
         set { brainDumpRaw = newValue.isEmpty ? nil : newValue }
     }
 
+    var tasks: [TaskItem] {
+        get { [TaskItem].fromStorage(tasksRaw) }
+        set { tasksRaw = newValue.storageJSON }
+    }
+
     var isBlank: Bool {
-        brainDump.isEmpty && intentions.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+        brainDump.isEmpty && tasksRaw == nil && intentions.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
     }
 }
 

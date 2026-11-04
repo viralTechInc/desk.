@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Compact popover for a block: title, category, date, times, repeat, note.
-/// Edits are committed when the popover closes (or Done / Return); Esc cancels.
+/// Popover for a block, laid out like a small card: title, then three quiet sections
+/// (category, when, repeat), a note, and the actions. Edits are committed when the popover
+/// closes (or Done / Return); Esc cancels.
 struct BlockEditorView: View {
     let occurrence: EventOccurrence
     let isNew: Bool
@@ -17,6 +18,7 @@ struct BlockEditorView: View {
     @State private var startText: String
     @State private var endText: String
     @State private var finished = false
+    @State private var showingCalendar = false
     @FocusState private var focus: Field?
 
     enum Field: Hashable { case title, start, end, note }
@@ -34,7 +36,7 @@ struct BlockEditorView: View {
     private var original: BlockDraft { BlockDraft(from: occurrence, weekdays: weekdays) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             if occurrence.isRecurring {
                 Picker("Apply to", selection: $scope) {
                     Text("This occurrence").tag(EditScope.thisOccurrence)
@@ -45,84 +47,139 @@ struct BlockEditorView: View {
                 .controlSize(.small)
                 .disabled(draft.weekdays != weekdays)
                 .help(draft.weekdays != weekdays ? "Changing repeat days always applies to the entire routine." : "")
+                .padding(.bottom, 16)
             }
 
-            TextField("Title", text: $draft.title, prompt: Text("Title").foregroundStyle(Theme.inkFaint))
-                .textFieldStyle(.plain)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Theme.ink)
-                .focused($focus, equals: .title)
-                .onSubmit { finish() }
-                .accessibilityIdentifier("blockEditor.title")
-
-            CategoryPicker(selection: $draft.category)
-
-            HStack(spacing: 8) {
-                DatePicker("Date", selection: dateBinding, displayedComponents: .date)
-                    .labelsHidden()
-                    .datePickerStyle(.field)
-                    .controlSize(.small)
-                    .frame(width: 112)
-                    .accessibilityLabel("Date")
-                TimeField(text: $startText, minutes: $draft.startMinutes, label: "Start", focus: $focus, field: .start) { newStart in
-                    // Keep duration when the start moves.
-                    let duration = draft.endMinutes - draft.startMinutes
-                    draft.startMinutes = newStart
-                    draft.endMinutes = min(newStart + max(duration, TimeRules.minimumDuration), TimeRules.dayMinutes)
-                    endText = TimeFormat.clock(draft.endMinutes)
-                }
-                Text("–").foregroundStyle(Theme.inkMuted)
-                TimeField(text: $endText, minutes: $draft.endMinutes, label: "End", focus: $focus, field: .end) { newEnd in
-                    draft.endMinutes = max(newEnd, draft.startMinutes + TimeRules.minimumDuration)
-                    endText = TimeFormat.clock(draft.endMinutes)
-                }
-                Text(TimeFormat.duration(max(draft.endMinutes - draft.startMinutes, 0)))
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.inkMuted)
-                    .frame(minWidth: 52, alignment: .leading)
+            // Title, with the category colour as a bar beside it.
+            HStack(alignment: .center, spacing: 10) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(draft.category.color)
+                    .frame(width: 4, height: 22)
+                    .animation(.easeOut(duration: 0.15), value: draft.category)
+                    .accessibilityHidden(true)
+                TextField("Title", text: $draft.title, prompt: Text("What is this block for?").foregroundStyle(Theme.inkFaint))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                    .focused($focus, equals: .title)
+                    .onSubmit { finish() }
+                    .accessibilityIdentifier("blockEditor.title")
             }
+            .padding(.bottom, 8)
+            Hairline()
+                .padding(.bottom, 18)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Repeat").font(Theme.caption).foregroundStyle(Theme.inkMuted)
-                    Spacer()
-                    Menu {
-                        Button("Never") { draft.weekdays = .none }
-                        Button("Weekdays") { draft.weekdays = .weekdays }
-                        Button("Every day") { draft.weekdays = .everyDay }
-                        Button("Weekly on \(appState.calendar.weekday(of: draft.date).fullName)") {
-                            draft.weekdays = WeekdaySet([appState.calendar.weekday(of: draft.date)])
+            // Category
+            EditorSection(label: "Category") {
+                CategoryPicker(selection: $draft.category)
+            }
+            .padding(.bottom, 18)
+
+            // When
+            EditorSection(label: "When") {
+                HStack(spacing: 8) {
+                    Button { showingCalendar = true } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Theme.inkMuted)
+                            Text(dateLabel)
+                                .font(.system(size: 13))
+                                .foregroundStyle(Theme.ink)
+                                .lineLimit(1)
                         }
-                    } label: {
-                        Text(draft.weekdays.isEmpty ? "Never" : draft.weekdays.summary(startingAt: settings.firstWeekday))
-                            .font(Theme.caption)
+                        .padding(.horizontal, 9)
+                        .frame(height: 28)
+                        .fieldChrome()
                     }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
-                    .accessibilityLabel("Repeat presets")
+                    .buttonStyle(.plain)
+                    .help("Change date")
+                    .accessibilityLabel("Date, \(dateLabel)")
+                    .popover(isPresented: $showingCalendar, arrowEdge: .bottom) {
+                        DatePicker("Date", selection: dateBinding, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+                            .padding(12)
+                            .background(Theme.surfaceRaised)
+                    }
+
+                    TimeField(text: $startText, minutes: $draft.startMinutes, label: "Start", focus: $focus, field: .start) { newStart in
+                        // Keep duration when the start moves.
+                        let duration = draft.endMinutes - draft.startMinutes
+                        draft.startMinutes = newStart
+                        draft.endMinutes = min(newStart + max(duration, TimeRules.minimumDuration), TimeRules.dayMinutes)
+                        endText = TimeFormat.clock(draft.endMinutes)
+                    }
+                    Text("–")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.inkFaint)
+                    TimeField(text: $endText, minutes: $draft.endMinutes, label: "End", focus: $focus, field: .end) { newEnd in
+                        draft.endMinutes = max(newEnd, draft.startMinutes + TimeRules.minimumDuration)
+                        endText = TimeFormat.clock(draft.endMinutes)
+                    }
+                    Spacer(minLength: 4)
+                    Text(TimeFormat.duration(max(draft.endMinutes - draft.startMinutes, 0)))
+                        .font(Theme.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.inkMuted)
+                        .lineLimit(1)
                 }
+            }
+            .padding(.bottom, 18)
+
+            // Repeat
+            EditorSection(label: "Repeat", trailing: {
+                Menu {
+                    Button("Never") { draft.weekdays = .none }
+                    Button("Weekdays") { draft.weekdays = .weekdays }
+                    Button("Every day") { draft.weekdays = .everyDay }
+                    Button("Weekly on \(appState.calendar.weekday(of: draft.date).fullName)") {
+                        draft.weekdays = WeekdaySet([appState.calendar.weekday(of: draft.date)])
+                    }
+                } label: {
+                    Text(draft.weekdays.isEmpty ? "Never" : draft.weekdays.summary(startingAt: settings.firstWeekday))
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.inkMuted)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityLabel("Repeat presets")
+            }) {
                 WeekdayToggles(selection: $draft.weekdays, first: settings.firstWeekday)
             }
+            .padding(.bottom, 18)
 
-            TextField("Note", text: $draft.note, prompt: Text("Note").foregroundStyle(Theme.inkFaint), axis: .vertical)
+            // Note
+            TextField("Note", text: $draft.note, prompt: Text("Add a note…").foregroundStyle(Theme.inkFaint), axis: .vertical)
                 .textFieldStyle(.plain)
-                .font(Theme.caption)
+                .font(.system(size: 13))
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1...4)
                 .focused($focus, equals: .note)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fieldChrome(filled: true)
+                .padding(.bottom, 18)
 
-            HStack {
+            Hairline()
+                .padding(.bottom, 12)
+
+            HStack(spacing: 8) {
                 if occurrence.isRecurring {
                     Menu {
                         Button("Skip This Occurrence") { finished = true; store.delete(occurrence, scope: .thisOccurrence); close() }
                         Button("Delete Routine…", role: .destructive) { finished = true; appState.seriesDeletion = occurrence; close() }
                     } label: {
                         Image(systemName: "trash")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 28, height: 28)
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
                     .foregroundStyle(Theme.inkMuted)
+                    .help("Skip or delete")
                     .accessibilityLabel("Remove")
                 } else {
                     Button { finished = true; store.delete(occurrence, scope: .thisOccurrence); close() } label: {
@@ -136,14 +193,15 @@ struct BlockEditorView: View {
                 if isNew {
                     Button("Cancel") { cancel() }
                         .buttonStyle(QuietButtonStyle())
+                        .keyboardShortcut(.cancelAction)
                 }
                 Button("Done") { finish() }
-                    .buttonStyle(QuietButtonStyle(prominent: true))
+                    .buttonStyle(FilledButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(16)
-        .frame(width: 340)
+        .padding(20)
+        .frame(width: 372)
         .background(Theme.surfaceRaised)
         .onAppear {
             if isNew || occurrence.title.isEmpty { focus = .title }
@@ -153,6 +211,13 @@ struct BlockEditorView: View {
             // Click-outside dismissal commits like Done.
             if !finished { commit() }
         }
+    }
+
+    /// "Fri, Nov 7" — or "Today" / "Tomorrow" when that is what it is.
+    private var dateLabel: String {
+        if draft.date == appState.today { return "Today" }
+        if draft.date == appState.calendar.adding(days: 1, to: appState.today) { return "Tomorrow" }
+        return appState.calendar.noon(draft.date).formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
     }
 
     private var dateBinding: Binding<Date> {
@@ -203,6 +268,62 @@ struct BlockEditorView: View {
 
 // MARK: - Pieces
 
+/// A small uppercase label (with an optional control on the right) above its content.
+private struct EditorSection<Content: View, Trailing: View>: View {
+    let label: String
+    let trailing: Trailing
+    let content: Content
+
+    init(label: String, @ViewBuilder trailing: () -> Trailing, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.trailing = trailing()
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(label.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.1)
+                    .foregroundStyle(Theme.inkFaint)
+                Spacer()
+                trailing
+            }
+            content
+        }
+    }
+}
+
+extension EditorSection where Trailing == EmptyView {
+    init(label: String, @ViewBuilder content: () -> Content) {
+        self.init(label: label, trailing: { EmptyView() }, content: content)
+    }
+}
+
+/// Rounded hairline box shared by the editor's fields so they all read as one family.
+private struct FieldChrome: ViewModifier {
+    var filled = false
+    var focused = false
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(filled ? Theme.surface : .clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(focused ? Theme.accent : Theme.hairlineStrong, lineWidth: 1)
+            )
+    }
+}
+
+private extension View {
+    func fieldChrome(filled: Bool = false, focused: Bool = false) -> some View {
+        modifier(FieldChrome(filled: filled, focused: focused))
+    }
+}
+
 private struct TimeField: View {
     @Binding var text: String
     @Binding var minutes: Int
@@ -213,11 +334,12 @@ private struct TimeField: View {
 
     var body: some View {
         TextField(label, text: $text)
-            .textFieldStyle(.roundedBorder)
-            .controlSize(.small)
-            .font(.system(size: 12).monospacedDigit())
+            .textFieldStyle(.plain)
+            .font(.system(size: 13).monospacedDigit())
+            .foregroundStyle(Theme.ink)
             .multilineTextAlignment(.center)
-            .frame(width: 70)
+            .frame(width: 74, height: 28)
+            .fieldChrome(focused: focus.wrappedValue == field)
             .focused(focus, equals: field)
             .onSubmit { apply() }
             .onChange(of: focus.wrappedValue) { _, new in
@@ -240,16 +362,19 @@ private struct TimeField: View {
 struct CategoryPicker: View {
     @Binding var selection: BlockCategory
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             ForEach(BlockCategory.allCases) { cat in
                 Button {
-                    selection = cat
+                    withAnimation(.easeOut(duration: 0.12)) { selection = cat }
                 } label: {
                     ZStack {
-                        Circle().fill(cat.color).frame(width: 18, height: 18)
-                        if selection == cat {
-                            Circle().strokeBorder(Theme.ink.opacity(0.7), lineWidth: 2).frame(width: 24, height: 24)
-                        }
+                        Circle()
+                            .strokeBorder(cat.color, lineWidth: 1.5)
+                            .frame(width: 24, height: 24)
+                            .opacity(selection == cat ? 1 : 0)
+                        Circle()
+                            .fill(cat.color)
+                            .frame(width: selection == cat ? 14 : 16, height: selection == cat ? 14 : 16)
                     }
                     .frame(width: 26, height: 26)
                     .contentShape(Circle())
@@ -259,10 +384,12 @@ struct CategoryPicker: View {
                 .accessibilityLabel(cat.label)
                 .accessibilityAddTraits(selection == cat ? [.isSelected] : [])
             }
-            Spacer()
+            Spacer(minLength: 8)
             Text(selection.label)
-                .font(Theme.caption)
-                .foregroundStyle(Theme.inkMuted)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .lineLimit(1)
+                .contentTransition(.opacity)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Category")
@@ -277,13 +404,14 @@ struct WeekdayToggles: View {
             ForEach(Weekday.ordered(startingAt: first), id: \.self) { day in
                 let on = selection.contains(day)
                 Button {
-                    selection.toggle(day)
+                    withAnimation(.easeOut(duration: 0.12)) { selection.toggle(day) }
                 } label: {
                     Text(day.letter)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(on ? Theme.surface : Theme.inkMuted)
-                        .frame(width: 26, height: 26)
-                        .background(Circle().fill(on ? Theme.ink : Theme.hairline.opacity(0.9)))
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(on ? Theme.ink : .clear))
+                        .overlay(Circle().strokeBorder(on ? .clear : Theme.hairlineStrong, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .help(day.fullName)

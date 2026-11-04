@@ -81,6 +81,10 @@ struct TimelineGrid: View {
                             .frame(width: Theme.gutterWidth)
                         GeometryReader { geo in
                             let columnWidth = geo.size.width / CGFloat(days.count)
+                            // Re-renders once a minute so the now-line, the pencil shade and
+                            // greyed-out blocks keep up with the clock.
+                            TimelineView(.everyMinute) { context in
+                            let nowMinutes = appState.calendar.minutesFromMidnight(context.date)
                             ZStack(alignment: .topLeading) {
                                 GridLines(geometry: geometry, columns: days.count)
                                 HStack(spacing: 0) {
@@ -89,6 +93,7 @@ struct TimelineGrid: View {
                                             day: day, index: index, columnWidth: columnWidth, columnCount: days.count,
                                             geometry: geometry,
                                             entries: displayedEntries(entries, dayIndex: index),
+                                            elapsedUntil: settings.shadeElapsed ? elapsedMinutes(on: day, now: nowMinutes) : 0,
                                             readOnlyOwner: partner?.name,
                                             draggingID: draggingID,
                                             drag: $drag,
@@ -100,6 +105,11 @@ struct TimelineGrid: View {
                                         .frame(width: columnWidth)
                                     }
                                 }
+                                if settings.shadeElapsed {
+                                    ElapsedShade(heights: days.map { geometry.y(forMinutes: elapsedMinutes(on: $0, now: nowMinutes)) },
+                                                 columnWidth: columnWidth, totalHeight: geometry.totalHeight)
+                                        .allowsHitTesting(false)
+                                }
                                 if case .move(let occ, let dayIndex, let start) = drag {
                                     MoveGhost(occurrence: occ, start: start)
                                         .frame(width: max(columnWidth - 6, 20), height: max(geometry.height(forDuration: occ.durationMinutes), 18))
@@ -108,7 +118,7 @@ struct TimelineGrid: View {
                                         .transition(.opacity)
                                 }
                                 if hasToday, let todayIndex = days.firstIndex(of: appState.today) {
-                                    NowLine(geometry: geometry, calendar: appState.calendar)
+                                    NowLine(geometry: geometry, minutes: nowMinutes)
                                         .frame(width: columnWidth)
                                         .offset(x: columnWidth * CGFloat(todayIndex))
                                         .allowsHitTesting(false)
@@ -121,6 +131,7 @@ struct TimelineGrid: View {
                                 }
                             }
                             .coordinateSpace(name: "grid")
+                            }
                         }
                         .frame(height: geometry.totalHeight)
                     }
@@ -142,6 +153,15 @@ struct TimelineGrid: View {
                         .accessibilityHidden(true)
                 }
             }
+    }
+
+    /// How far into `day` the clock has run: the whole day for earlier days, the current
+    /// minute for today (clamped to the rendered range), nothing for days still ahead.
+    private func elapsedMinutes(on day: LocalDate, now: Int) -> Int {
+        let today = appState.today
+        if day < today { return TimeRules.dayMinutes }
+        if day > today { return 0 }
+        return min(max(now, 0), TimeRules.dayMinutes)
     }
 
     private var draggingID: String? {
@@ -187,6 +207,9 @@ private struct DayColumn: View {
     let columnCount: Int
     let geometry: TimelineGeometry
     let entries: [ScheduleEntry]
+    /// Minutes of this day already behind us (0 when nothing is, or shading is off). Blocks
+    /// that ended before this point lose their colour.
+    let elapsedUntil: Int
     /// Set for a partner's page: blocks show details on click but can't be changed.
     let readOnlyOwner: String?
     let draggingID: String?
@@ -203,6 +226,8 @@ private struct DayColumn: View {
     @State private var selectedReadOnlyID: String?
 
     private var readOnly: Bool { readOnlyOwner != nil }
+
+    private func isElapsed<Item: TimelineItem>(_ item: Item) -> Bool { item.endMinutes <= elapsedUntil }
 
     var body: some View {
         let laidOut = OverlapLayout.layout(entries)
@@ -263,6 +288,7 @@ private struct DayColumn: View {
         let height = OverlapLayout.visualHeight(of: item, among: laidOut, geometry: geometry, floor: 16)
         let isSelected = selectedReadOnlyID == occ.id
         TimeBlockView(occurrence: occ, isSelected: isSelected, compact: height < 34, micro: height < 20)
+            .pencilledOut(isElapsed(occ))
             .frame(width: width, height: height)
             .contentShape(Rectangle())
             .onTapGesture { selectedReadOnlyID = occ.id }
@@ -287,6 +313,7 @@ private struct DayColumn: View {
         let height = OverlapLayout.visualHeight(of: item, among: laidOut, geometry: geometry, floor: 16)
         let isSelected = selectedExternalID == ev.id
         ExternalEventView(event: ev, isSelected: isSelected, compact: height < 34, micro: height < 20)
+            .pencilledOut(isElapsed(ev))
             .frame(width: width, height: height)
             .contentShape(Rectangle())
             .onTapGesture { selectedExternalID = ev.id }
@@ -321,6 +348,7 @@ private struct DayColumn: View {
 
         TimeBlockView(occurrence: occ, isSelected: isSelected || isEditing, isDimmed: draggingID == occ.id && isMoving,
                       compact: height < 34, micro: height < 20)
+            .pencilledOut(isElapsed(occ) && !isSelected && !isEditing)
             .frame(width: width, height: height)
             .contentShape(Rectangle())
             .gesture(moveGesture(occ))
@@ -503,20 +531,91 @@ private struct GridLines: View {
     }
 }
 
+/// Pencil hatching over what has already passed: whole columns for earlier days and today's
+/// column down to the current minute. A faint wash underneath, then diagonal graphite
+/// strokes with a little hand-drawn wobble, so the eye lands on what is still ahead.
+private struct ElapsedShade: View {
+    /// Shaded height per column, in order.
+    let heights: [CGFloat]
+    let columnWidth: CGFloat
+    let totalHeight: CGFloat
+
+    var body: some View {
+        Canvas(rendersAsynchronously: true) { ctx, size in
+            for (index, raw) in heights.enumerated() {
+                let height = min(max(raw, 0), totalHeight)
+                guard height > 0.5 else { continue }
+                let rect = CGRect(x: columnWidth * CGFloat(index), y: 0, width: columnWidth, height: height)
+                var column = ctx
+                column.clip(to: Path(rect))
+                column.fill(Path(rect), with: .color(Theme.elapsedWash))
+                var strokes = Path()
+                PencilHatch.strokes(in: rect, seed: index, into: &strokes)
+                column.stroke(strokes, with: .color(Theme.elapsedStroke), style: StrokeStyle(lineWidth: 0.9, lineCap: .round))
+            }
+        }
+        .frame(height: totalHeight)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Diagonal pencil strokes. Deterministic per column so the drawing doesn't shimmer when
+/// the grid re-renders.
+enum PencilHatch {
+    static let spacing: CGFloat = 7
+
+    static func strokes(in rect: CGRect, seed: Int, into path: inout Path) {
+        var rng = Wobble(seed: UInt64(seed &+ 1) &* 0x9E37_79B9_7F4A_7C15)
+        // 45° lines from bottom-left to top-right, covering the rect from both sides.
+        var x = rect.minX - rect.height
+        while x < rect.maxX {
+            let wobble = CGFloat(rng.next(in: -1.2...1.2))
+            let gap = CGFloat(rng.next(in: -0.8...0.8))
+            let from = CGPoint(x: x + wobble, y: rect.maxY + gap)
+            let to = CGPoint(x: x + rect.height - wobble, y: rect.minY - gap)
+            // A short, lighter second stroke now and then reads as a pencil going back over.
+            path.move(to: from)
+            path.addQuadCurve(to: to, control: CGPoint(x: (from.x + to.x) / 2 + CGFloat(rng.next(in: -2...2)),
+                                                         y: (from.y + to.y) / 2 + CGFloat(rng.next(in: -2...2))))
+            x += spacing + CGFloat(rng.next(in: -0.6...0.6))
+        }
+    }
+
+    /// Tiny xorshift generator: enough randomness for a wobble, fully reproducible.
+    struct Wobble {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed == 0 ? 0x2545_F491_4F6C_DD1D : seed }
+        mutating func next(in range: ClosedRange<Double>) -> Double {
+            state ^= state << 13; state ^= state >> 7; state ^= state << 17
+            let unit = Double(state % 10_000) / 10_000
+            return range.lowerBound + (range.upperBound - range.lowerBound) * unit
+        }
+    }
+}
+
+extension View {
+    /// Drains the colour out of a block that is already behind us.
+    @ViewBuilder
+    func pencilledOut(_ elapsed: Bool) -> some View {
+        if elapsed {
+            self.saturation(0).opacity(0.82)
+        } else {
+            self
+        }
+    }
+}
+
 private struct NowLine: View {
     let geometry: TimelineGeometry
-    let calendar: DeskCalendar
+    let minutes: Int
     var body: some View {
-        TimelineView(.everyMinute) { context in
-            let minutes = calendar.minutesFromMidnight(context.date)
-            if minutes >= geometry.startMinutes && minutes <= geometry.endMinutes {
-                HStack(spacing: 0) {
-                    Circle().fill(Theme.nowLine).frame(width: 7, height: 7).offset(x: -3)
-                    Rectangle().fill(Theme.nowLine).frame(height: 1.5)
-                }
-                .offset(y: geometry.y(forMinutes: minutes) - 3.5)
-                .accessibilityLabel("Now, \(TimeFormat.clock(minutes))")
+        if minutes >= geometry.startMinutes && minutes <= geometry.endMinutes {
+            HStack(spacing: 0) {
+                Circle().fill(Theme.nowLine).frame(width: 7, height: 7).offset(x: -3)
+                Rectangle().fill(Theme.nowLine).frame(height: 1.5)
             }
+            .offset(y: geometry.y(forMinutes: minutes) - 3.5)
+            .accessibilityLabel("Now, \(TimeFormat.clock(minutes))")
         }
     }
 }
@@ -572,14 +671,15 @@ struct WeekHeaderRow: View {
             Spacer().frame(width: Theme.gutterWidth)
             ForEach(days, id: \.self) { day in
                 let isToday = day == appState.today
+                let isPast = day < appState.today
                 Button { appState.showDay(day) } label: {
                     HStack(spacing: 6) {
                         Text(appState.calendar.weekday(of: day).shortName.uppercased())
                             .font(Theme.sectionLabel).tracking(0.8)
-                            .foregroundStyle(isToday ? Theme.ink : Theme.inkMuted)
+                            .foregroundStyle(isToday ? Theme.ink : (isPast ? Theme.inkFaint : Theme.inkMuted))
                         Text("\(day.day)")
                             .font(.system(size: 15, weight: isToday ? .semibold : .regular, design: .serif))
-                            .foregroundStyle(isToday ? Theme.surface : Theme.ink)
+                            .foregroundStyle(isToday ? Theme.surface : (isPast ? Theme.inkMuted : Theme.ink))
                             .frame(minWidth: 24, minHeight: 24)
                             .background(Circle().fill(isToday ? Theme.nowLine : .clear))
                     }

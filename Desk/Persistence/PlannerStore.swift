@@ -90,7 +90,8 @@ final class PlannerStore {
     func editor(for date: LocalDate) -> DayPageEditor {
         if let e = editors[date] { return e }
         let page = fetchPage(date)
-        let e = DayPageEditor(date: date, priorities: page?.priorities ?? [], brainDump: page?.brainDump ?? "", store: self)
+        let e = DayPageEditor(date: date, priorities: page?.priorities ?? [], brainDump: page?.brainDump ?? "",
+                              tasks: page?.tasks ?? [], store: self)
         editors[date] = e
         return e
     }
@@ -98,7 +99,8 @@ final class PlannerStore {
     func weekEditor(for weekStart: LocalDate) -> WeekPageEditor {
         if let e = weekEditors[weekStart] { return e }
         let page = fetchWeek(weekStart)
-        let e = WeekPageEditor(weekStart: weekStart, intentions: page?.intentions ?? [], brainDump: page?.brainDump ?? "", store: self)
+        let e = WeekPageEditor(weekStart: weekStart, intentions: page?.intentions ?? [], brainDump: page?.brainDump ?? "",
+                               tasks: page?.tasks ?? [], store: self)
         weekEditors[weekStart] = e
         return e
     }
@@ -121,6 +123,16 @@ final class PlannerStore {
         scheduleSave()
     }
 
+    func setTasks(_ tasks: [TaskItem], for date: LocalDate) {
+        let page = fetchPage(date) ?? insertPage(date)
+        let kept = tasks.trimmedForStorage
+        guard page.tasks != kept else { return }
+        page.tasks = kept
+        page.updatedAt = now()
+        touchedPages.insert(date)
+        scheduleSave()
+    }
+
     func setIntentions(_ intentions: [String], for weekStart: LocalDate) {
         let page = fetchWeek(weekStart) ?? insertWeek(weekStart)
         guard page.intentions != intentions else { return }
@@ -134,6 +146,16 @@ final class PlannerStore {
         let page = fetchWeek(weekStart) ?? insertWeek(weekStart)
         guard page.brainDump != text else { return }
         page.brainDump = text
+        page.updatedAt = now()
+        touchedWeeks.insert(weekStart)
+        scheduleSave()
+    }
+
+    func setWeekTasks(_ tasks: [TaskItem], for weekStart: LocalDate) {
+        let page = fetchWeek(weekStart) ?? insertWeek(weekStart)
+        let kept = tasks.trimmedForStorage
+        guard page.tasks != kept else { return }
+        page.tasks = kept
         page.updatedAt = now()
         touchedWeeks.insert(weekStart)
         scheduleSave()
@@ -615,14 +637,16 @@ final class PlannerStore {
         }
 
         for seedPage in seed.pages {
-            if let page = fetchPage(seedPage.date), page.priorities == seedPage.priorities, page.brainDump == seedPage.brainDump {
+            if let page = fetchPage(seedPage.date), page.priorities == seedPage.priorities, page.brainDump == seedPage.brainDump,
+               page.tasks.map(\.text) == seedPage.tasks.map(\.text) {
                 context.delete(page)
                 removed += 1
             }
         }
         for seedWeek in seed.weeks {
             if let week = fetchWeek(seedWeek.weekStart),
-               DayPageEditor.trimmed(week.intentions) == DayPageEditor.trimmed(seedWeek.intentions), week.brainDump.isEmpty {
+               DayPageEditor.trimmed(week.intentions) == DayPageEditor.trimmed(seedWeek.intentions), week.brainDump.isEmpty,
+               week.tasks.map(\.text) == seedWeek.tasks.map(\.text) {
                 context.delete(week)
                 removed += 1
             }
@@ -733,19 +757,25 @@ final class DayPageEditor {
     var brainDump: String {
         didSet { store?.setBrainDump(brainDump, for: date) }
     }
+    /// The brain dump's task list. Edited through the array helpers on `[TaskItem]`.
+    var tasks: [TaskItem] {
+        didSet { store?.setTasks(tasks, for: date) }
+    }
     @ObservationIgnored private weak var store: PlannerStore?
 
     static let minimumRows = 3
 
-    init(date: LocalDate, priorities: [String], brainDump: String, store: PlannerStore?) {
+    init(date: LocalDate, priorities: [String], brainDump: String, tasks: [TaskItem] = [], store: PlannerStore?) {
         self.date = date
         self.priorities = Self.padded(priorities)
         self.brainDump = brainDump
+        self.tasks = tasks
         self.store = store
     }
 
     var isBlank: Bool {
-        brainDump.isEmpty && priorities.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+        brainDump.isEmpty && tasks.trimmedForStorage.isEmpty
+            && priorities.allSatisfy { $0.trimmingCharacters(in: .whitespaces).isEmpty }
     }
 
     func setPriority(_ text: String, at index: Int) {
@@ -799,15 +829,19 @@ final class WeekPageEditor {
     var brainDump: String {
         didSet { store?.setWeekBrainDump(brainDump, for: weekStart) }
     }
+    var tasks: [TaskItem] {
+        didSet { store?.setWeekTasks(tasks, for: weekStart) }
+    }
     @ObservationIgnored private weak var store: PlannerStore?
     static let rows = 3
 
-    init(weekStart: LocalDate, intentions: [String], brainDump: String = "", store: PlannerStore?) {
+    init(weekStart: LocalDate, intentions: [String], brainDump: String = "", tasks: [TaskItem] = [], store: PlannerStore?) {
         self.weekStart = weekStart
         var r = intentions
         while r.count < Self.rows { r.append("") }
         self.intentions = Array(r.prefix(Self.rows))
         self.brainDump = brainDump
+        self.tasks = tasks
         self.store = store
     }
 

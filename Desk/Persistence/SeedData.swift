@@ -54,11 +54,21 @@ enum SeedData {
                            - Reread the chapter on deep work
                        Remember: book the car service before Friday.
                        """,
+                       tasks: [
+                           TaskItem(text: "Reply to the lease renewal email", isDone: true, doneAt: now),
+                           TaskItem(text: "Book the car service"),
+                           TaskItem(text: "Send Sam the podcast link"),
+                       ],
                        createdAt: now, updatedAt: now),
         ]
         let weeks = [
             WeekRecord(weekStart: calendar.startOfWeek(containing: date),
-                       intentions: ["Protect the mornings", "Be home by six", ""], updatedAt: now),
+                       intentions: ["Protect the mornings", "Be home by six", ""],
+                       tasks: [
+                           TaskItem(text: "Draft the Q1 plan"),
+                           TaskItem(text: "Renew passport"),
+                       ],
+                       updatedAt: now),
         ]
 
         return BackupDocument(exportedAt: now, timeZone: calendar.timeZone.identifier, pages: pages, weeks: weeks,

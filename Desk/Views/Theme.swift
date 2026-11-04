@@ -17,6 +17,10 @@ enum Theme {
     static let nowLine = dynamic(light: 0xC8553D, dark: 0xE0735C)
     static let danger = dynamic(light: 0xB4473A, dark: 0xE07A6D)
     static let selection = dynamic(light: 0xEFF3FA, dark: 0x2C3240)
+    /// Faint wash under the pencil hatching over hours and days that have already passed.
+    static let elapsedWash = dynamic(light: 0x7A746B, dark: 0x000000, lightAlpha: 0.05, darkAlpha: 0.16)
+    /// The pencil strokes themselves: graphite on light paper, chalk on dark.
+    static let elapsedStroke = dynamic(light: 0x5E5850, dark: 0xECE8E1, lightAlpha: 0.30, darkAlpha: 0.13)
 
     // MARK: Type
     static let dateHeading = Font.system(size: 31, weight: .regular, design: .serif)
@@ -44,10 +48,10 @@ enum Theme {
     /// Gap between a page's card and the footer.
     static let pageBottom: CGFloat = 8
 
-    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
+    private static func dynamic(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            return NSColor(hex: isDark ? dark : light)
+            return NSColor(hex: isDark ? dark : light).withAlphaComponent(isDark ? darkAlpha : lightAlpha)
         })
     }
 }
@@ -88,6 +92,25 @@ struct QuietButtonStyle: ButtonStyle {
             .overlay(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
                     .strokeBorder(prominent ? Theme.hairlineStrong : .clear, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+/// Solid ink button for the one primary action in a sheet or popover.
+struct FilledButtonStyle: ButtonStyle {
+    @State private var hovering = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.toolbar)
+            .foregroundStyle(Theme.surface)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Theme.ink.opacity(configuration.isPressed ? 0.75 : (hovering ? 0.9 : 1)))
             )
             .contentShape(Rectangle())
             .onHover { hovering = $0 }

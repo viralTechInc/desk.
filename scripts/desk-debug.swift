@@ -6,6 +6,7 @@
 //              build/desk-debug resize 1440 900
 //              build/desk-debug type "some text"
 //              build/desk-debug appearance dark|light|system
+//              build/desk-debug task "Call mom" [done] [week]
 import Foundation
 let a = CommandLine.arguments
 guard a.count >= 2 else { print("usage: desk-debug <cmd> [args]"); exit(1) }
@@ -15,10 +16,11 @@ case "screenshot": info["path"] = a[2]
 case "action": info["name"] = a[2]; if a.count > 3 { info["value"] = a[3] }
 case "date", "type", "appearance": info["value"] = a[2]
 case "block": info["value"] = a[2]; info["start"] = a[3]; info["end"] = a[4]
+case "task": info["value"] = a[2]; if a.contains("done") { info["done"] = "1" }; if a.contains("week") { info["scope"] = "week" }
 case "resize": info["w"] = a[2]; info["h"] = a[3]
 case "click": info["x"] = a[2]; info["y"] = a[3]
 case "key": info["value"] = a[2]; if a.count > 3 { info["cmd"] = a[3] }
-case "dump": info["path"] = a[2]
+case "dump", "responder": info["path"] = a[2]
 default: break
 }
 DistributedNotificationCenter.default().postNotificationName(

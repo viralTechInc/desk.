@@ -15,8 +15,13 @@ struct NotebookPanel: View {
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 0) {
-                    SectionLabel(text: "Brain dump")
-                        .padding(.bottom, 4)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        SectionLabel(text: "Brain dump")
+                            .fixedSize()
+                        Spacer(minLength: 0)
+                        TaskCount(tasks: editor.tasks)
+                    }
+                    .padding(.bottom, 4)
                     BrainDumpEditor(editor: editor)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -32,6 +37,8 @@ struct NotebookPanel: View {
                             .font(Theme.caption)
                             .foregroundStyle(Theme.inkFaint)
                             .lineLimit(1)
+                        Spacer(minLength: 0)
+                        TaskCount(tasks: weekEditor.tasks)
                     }
                     .padding(.bottom, 4)
                     WeekBrainDumpEditor(editor: weekEditor)
@@ -117,30 +124,56 @@ private struct PriorityRow: View {
     }
 }
 
-/// The day's freeform notes.
+/// The day's task list above its freeform notes.
 struct BrainDumpEditor: View {
     @Environment(AppState.self) private var appState
     let editor: DayPageEditor
 
     var body: some View {
-        NotesEditor(
+        BrainDumpPage(
+            tasks: Binding(get: { editor.tasks }, set: { editor.tasks = $0 }),
+            idPrefix: "task",
             text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
-            hint: "Write freely — thoughts, ideas, reminders. Nothing here becomes a task.",
+            hint: "Write freely — thoughts, ideas, reminders. Tasks go in the list above.",
             focusToken: appState.focusRequest.target == .brainDump ? appState.focusRequest.token : 0,
             accessibilityLabel: "Brain dump")
     }
 }
 
-/// Notes for the whole week; the same text appears on every day of that week.
+/// Tasks and notes for the whole week; the same list and text appear on every day of that week.
 struct WeekBrainDumpEditor: View {
     let editor: WeekPageEditor
 
     var body: some View {
-        NotesEditor(
+        BrainDumpPage(
+            tasks: Binding(get: { editor.tasks }, set: { editor.tasks = $0 }),
+            idPrefix: "weekTask",
             text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
             hint: "Loose ends, carry-overs and ideas for the whole week.",
             focusToken: 0,
             accessibilityLabel: "Week brain dump")
+    }
+}
+
+/// One brain dump column: the task list on top (never more than about half the column),
+/// freeform notes filling the rest.
+struct BrainDumpPage: View {
+    @Binding var tasks: [TaskItem]
+    let idPrefix: String
+    @Binding var text: String
+    let hint: String
+    let focusToken: Int
+    let accessibilityLabel: String
+
+    var body: some View {
+        GeometryReader { geo in
+            VStack(alignment: .leading, spacing: 0) {
+                CappedTaskList(tasks: $tasks, idPrefix: idPrefix, maxHeight: max(120, geo.size.height * 0.55))
+                    .padding(.bottom, 8)
+                NotesEditor(text: $text, hint: hint, focusToken: focusToken, accessibilityLabel: accessibilityLabel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
     }
 }
 

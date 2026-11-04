@@ -54,6 +54,7 @@ struct GeneralSettingsView: View {
                     Text("Saturday").tag(Weekday.saturday)
                 }
                 Toggle("Show weekly intentions", isOn: $settings.showWeeklyIntentions)
+                Toggle("Pencil over hours that have passed", isOn: $settings.shadeElapsed)
             }
             Section("Data") {
                 LabeledContent("Location") {

@@ -26,6 +26,7 @@ struct DeskCommands: Commands {
         }
         CommandGroup(after: .toolbar) {
             Button("Toggle Light / Dark") { model.settings.toggleAppearance() }
+            Button(model.settings.shadeElapsed ? "Hide Pencil Over Past Hours" : "Pencil Over Past Hours") { model.settings.shadeElapsed.toggle() }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
             Picker("Appearance", selection: Binding(get: { model.settings.appearance }, set: { model.settings.appearance = $0 })) {
                 ForEach(Appearance.allCases) { Text($0.label).tag($0) }

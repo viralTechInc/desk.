@@ -40,6 +40,7 @@ enum DebugHooks {
             case "demo": model.actions.loadDemoData()
             case "removeDemo": model.actions.removeDemoData()
             case "toggleAppearance": model.settings.toggleAppearance()
+            case "toggleShade": model.settings.shadeElapsed.toggle()
             case "partner":
                 model.sharing.reload()
                 state.showPartner(state.viewingPartnerID == nil ? model.sharing.partners.first?.id : nil)
@@ -80,11 +81,27 @@ enum DebugHooks {
             if let title = info["value"], let s = info["start"].flatMap(Int.init), let e = info["end"].flatMap(Int.init) {
                 _ = model.store.createBlock(BlockDraft(title: title, date: state.selectedDate, startMinutes: s, endMinutes: e, category: .personal))
             }
+        case "task":
+            // Adds a task to the selected day's (or, with scope=week, the week's) brain dump:
+            // task <text> [done] [week].
+            if let text = info["value"] {
+                let done = info["done"] == "1"
+                if info["scope"] == "week" {
+                    let editor = model.store.weekEditor(for: state.calendar.startOfWeek(containing: state.selectedDate))
+                    let t = editor.tasks.addTask(text)
+                    if done { editor.tasks.toggle(id: t.id) }
+                } else {
+                    let editor = model.store.editor(for: state.selectedDate)
+                    let t = editor.tasks.addTask(text)
+                    if done { editor.tasks.toggle(id: t.id) }
+                }
+            }
         case "edit":
             // Open the editor for the first occurrence on the selected date.
             if let occ = model.store.occurrences(on: state.selectedDate).first { state.edit(occ) }
         case "type":
-            if let text = info["value"], let window = NSApp.keyWindow, let tv = window.firstResponder as? NSTextView {
+            // The scripted instance is rarely the active app, so its window may not be key.
+            if let text = info["value"], let window = NSApp.keyWindow ?? mainWindow, let tv = window.firstResponder as? NSTextView {
                 tv.insertText(text, replacementRange: tv.selectedRange())
             }
         case "click":
@@ -96,8 +113,8 @@ enum DebugHooks {
         case "key":
             if let chars = info["value"], let window = mainWindow {
                 let flags: NSEvent.ModifierFlags = info["cmd"] == "1" ? [.command] : []
-                let code: UInt16 = chars == "esc" ? 53 : (chars == "return" ? 36 : 0)
-                let text = chars == "esc" ? "\u{1B}" : (chars == "return" ? "\r" : chars)
+                let code: UInt16 = chars == "esc" ? 53 : (chars == "return" ? 36 : (chars == "delete" ? 51 : 0))
+                let text = chars == "esc" ? "\u{1B}" : (chars == "return" ? "\r" : (chars == "delete" ? "\u{7F}" : chars))
                 if let down = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
                                                windowNumber: window.windowNumber, context: nil, characters: text,
                                                charactersIgnoringModifiers: text, isARepeat: false, keyCode: code) {
@@ -112,8 +129,22 @@ enum DebugHooks {
                     "\($0.date.isoString) \(TimeFormat.clock($0.startMinutes))-\(TimeFormat.clock($0.endMinutes)) \($0.displayTitle)\($0.isRecurring ? " [R]" : "")\($0.isException ? " [X]" : "")"
                 }
                 let page = model.store.pageRecord(for: state.selectedDate)
-                let text = (lines + ["---", "priorities: \(page?.priorities ?? [])", "brainDump: \(page?.brainDump.debugDescription ?? "nil")"]).joined(separator: "\n")
+                let tasks = (page?.tasks ?? []).map { "\($0.isDone ? "[x]" : "[ ]") \($0.text)" }
+                let text = (lines + ["---", "priorities: \(page?.priorities ?? [])", "brainDump: \(page?.brainDump.debugDescription ?? "nil")",
+                                     "tasks: \(tasks)"]).joined(separator: "\n")
                 try? text.write(toFile: path, atomically: true, encoding: .utf8)
+            }
+        case "responder":
+            // Writes the key window's first responder (and its superview chain) for focus debugging.
+            if let path = info["path"] {
+                let window = NSApp.keyWindow ?? mainWindow
+                var lines: [String] = ["window: \(window.map { "\($0.title) key=\($0.isKeyWindow) \($0.frame)" } ?? "nil")"]
+                var responder: NSResponder? = window?.firstResponder
+                while let r = responder {
+                    lines.append("\(type(of: r))\((r as? NSView).map { " frame=\($0.frame)" } ?? "")")
+                    responder = r.nextResponder
+                }
+                try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
             }
         case "appearance":
             if let v = info["value"], let a = Appearance(rawValue: v) { model.settings.appearance = a }
