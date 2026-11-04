@@ -315,4 +315,31 @@ struct StoreTests {
         let fromDay = store.occurrences(on: TestSupport.d(2026, 11, 5)).first
         #expect(fromWeek == fromDay)
     }
+    @Test func unfinishedTasksRollOverToToday() throws {
+        let store = try TestSupport.store()
+        let tuesday = TestSupport.d(2026, 11, 3)
+        let wednesday = TestSupport.d(2026, 11, 4)
+
+        let mon = store.editor(for: monday)
+        let rent = mon.tasks.addTask("Pay rent")
+        mon.tasks.addTask("Call mom")
+        mon.tasks.toggle(id: rent.id, on: monday)
+        store.editor(for: tuesday).tasks.addTask("Book dentist")
+        let wed = store.editor(for: wednesday)
+        wed.tasks.addTask("Today's own")
+        store.editor(for: TestSupport.d(2026, 11, 6)).tasks.addTask("Friday, later")   // future: untouched
+        store.flush()
+
+        #expect(store.rollOverTasks(into: wednesday) == 2)
+        store.flush()
+        #expect(wed.tasks.map(\.text) == ["Call mom", "Book dentist", "Today's own"])
+        #expect(store.pageRecord(for: monday)?.tasks.map(\.text) == ["Pay rent"])   // done stays on its day
+        #expect(store.pageRecord(for: tuesday) == nil)                               // nothing left: page pruned
+        #expect(store.pageRecord(for: TestSupport.d(2026, 11, 6))?.tasks.map(\.text) == ["Friday, later"])
+
+        // Running again (another launch the same day) moves nothing and duplicates nothing.
+        #expect(store.rollOverTasks(into: wednesday) == 0)
+        let reopened = PlannerStore(container: store.container, calendar: cal)
+        #expect(reopened.editor(for: wednesday).tasks.count == 3)
+    }
 }

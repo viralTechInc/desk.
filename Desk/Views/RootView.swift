@@ -121,6 +121,12 @@ private struct RootLifecycle: ViewModifier {
             .onChange(of: appState.selectedDate) { store.flush() }
             .onChange(of: appState.viewMode) { store.flush() }
             .onChange(of: settings.firstWeekday, initial: true) { applyCalendar() }
+            // Unfinished tasks follow you to today (at launch, at midnight, on waking the Mac).
+            // Not while hosting unit tests: they open the real store alongside the owner's app.
+            .onChange(of: appState.today, initial: true) {
+                guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+                store.rollOverTasks(into: appState.today)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in appState.refreshToday() }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in store.flush(); sharing.publishNow() }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in store.flush(); sharing.publishNow() }

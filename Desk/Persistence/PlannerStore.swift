@@ -161,6 +161,32 @@ final class PlannerStore {
         scheduleSave()
     }
 
+    /// Carries every unfinished task from earlier days onto `today`, oldest first, above
+    /// today's own tasks. Earlier pages keep only what was finished on them, so a task lives on
+    /// until it's done and then stays on the day it was done. Returns how many tasks moved.
+    @discardableResult
+    func rollOverTasks(into today: LocalDate) -> Int {
+        let todayKey = today.key
+        let earlier = fetch(FetchDescriptor<DailyPage>(
+            predicate: #Predicate { $0.dateKey < todayKey && $0.tasksRaw != nil },
+            sortBy: [SortDescriptor(\.dateKey)]))
+        var carried: [TaskItem] = []
+        for page in earlier {
+            guard let date = LocalDate(key: page.dateKey) else { continue }
+            let tasks = editors[date]?.tasks ?? page.tasks
+            let open = tasks.filter { !$0.isDone && !$0.isBlankText }
+            guard !open.isEmpty else { continue }
+            let finished = tasks.filter(\.isDone)
+            if let e = editors[date] { e.tasks = finished } else { setTasks(finished, for: date) }
+            carried += open
+        }
+        guard !carried.isEmpty else { return 0 }
+        let todayEditor = editor(for: today)
+        let present = Set(todayEditor.tasks.map(\.id))
+        todayEditor.tasks = carried.filter { !present.contains($0.id) } + todayEditor.tasks
+        return carried.count
+    }
+
     func pageRecord(for date: LocalDate) -> PageRecord? { fetchPage(date)?.record }
     func weekRecord(for weekStart: LocalDate) -> WeekRecord? { fetchWeek(weekStart)?.record }
 
