@@ -90,11 +90,11 @@ enum DebugHooks {
                 if info["scope"] == "week" {
                     let editor = model.store.weekEditor(for: state.calendar.startOfWeek(containing: state.selectedDate))
                     let t = editor.tasks.addTask(text)
-                    if done { editor.tasks.toggle(id: t.id) }
+                    if done { editor.tasks.toggle(id: t.id, on: state.selectedDate) }
                 } else {
                     let editor = model.store.editor(for: state.selectedDate)
                     let t = editor.tasks.addTask(text)
-                    if done { editor.tasks.toggle(id: t.id) }
+                    if done { editor.tasks.toggle(id: t.id, on: state.selectedDate) }
                 }
             }
         case "edit":

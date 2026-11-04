@@ -163,6 +163,7 @@ struct PartnerNotebookPanel: View {
     var body: some View {
         let page = partner.page(for: date)
         let week = partner.week(for: weekStart)
+        let weekTasks = (week?.tasks ?? []).visible(on: date, calendar: appState.calendar)
         let priorities = (page?.priorities ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         VStack(alignment: .leading, spacing: 0) {
             SectionLabel(text: "Top priorities")
@@ -209,10 +210,10 @@ struct PartnerNotebookPanel: View {
                         Text(appState.calendar.weekRangeString(containing: date))
                             .font(Theme.caption).foregroundStyle(Theme.inkFaint).lineLimit(1)
                         Spacer(minLength: 0)
-                        TaskCount(tasks: week?.tasks ?? [])
+                        TaskCount(tasks: weekTasks)
                     }
                     .padding(.bottom, 4)
-                    TaskListReader(tasks: week?.tasks ?? [])
+                    TaskListReader(tasks: weekTasks)
                     NotesReader(text: week?.brainDump ?? "", hint: "Nothing written for this week.")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }

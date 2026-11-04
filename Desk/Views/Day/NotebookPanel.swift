@@ -42,14 +42,14 @@ struct NotebookPanel: View {
                             .foregroundStyle(Theme.inkFaint)
                             .lineLimit(1)
                         Spacer(minLength: 0)
-                        TaskCount(tasks: weekEditor.tasks)
+                        TaskCount(tasks: weekEditor.tasks.visible(on: editor.date, calendar: appState.calendar))
                         TaskSuggestionsButton(
                             notes: weekEditor.brainDump,
                             tasks: Binding(get: { weekEditor.tasks }, set: { weekEditor.tasks = $0 }),
                             idPrefix: "weekTask")
                     }
                     .padding(.bottom, 4)
-                    WeekBrainDumpEditor(editor: weekEditor)
+                    WeekBrainDumpEditor(editor: weekEditor, day: editor.date)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .padding(.leading, Theme.padding)
@@ -141,6 +141,7 @@ struct BrainDumpEditor: View {
         BrainDumpPage(
             tasks: Binding(get: { editor.tasks }, set: { editor.tasks = $0 }),
             idPrefix: "task",
+            day: editor.date,
             text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
             hint: "Write freely — thoughts, ideas, reminders. Tasks go in the list above.",
             focusToken: appState.focusRequest.target == .brainDump ? appState.focusRequest.token : 0,
@@ -148,14 +149,22 @@ struct BrainDumpEditor: View {
     }
 }
 
-/// Tasks and notes for the whole week; the same list and text appear on every day of that week.
+/// Tasks and notes for the whole week. Notes and open tasks appear on every day of that week;
+/// a finished task stays only on the day it was checked off.
 struct WeekBrainDumpEditor: View {
+    @Environment(AppState.self) private var appState
     let editor: WeekPageEditor
+    /// The day whose page shows this week list.
+    let day: LocalDate
 
     var body: some View {
+        let calendar = appState.calendar
         BrainDumpPage(
-            tasks: Binding(get: { editor.tasks }, set: { editor.tasks = $0 }),
+            tasks: Binding(
+                get: { editor.tasks.visible(on: day, calendar: calendar) },
+                set: { editor.tasks = editor.tasks.replacingVisible($0, on: day, calendar: calendar) }),
             idPrefix: "weekTask",
+            day: day,
             text: Binding(get: { editor.brainDump }, set: { editor.brainDump = $0 }),
             hint: "Loose ends, carry-overs and ideas for the whole week.",
             focusToken: 0,
@@ -168,6 +177,7 @@ struct WeekBrainDumpEditor: View {
 struct BrainDumpPage: View {
     @Binding var tasks: [TaskItem]
     let idPrefix: String
+    let day: LocalDate
     @Binding var text: String
     let hint: String
     let focusToken: Int
@@ -176,7 +186,7 @@ struct BrainDumpPage: View {
     var body: some View {
         GeometryReader { geo in
             VStack(alignment: .leading, spacing: 0) {
-                CappedTaskList(tasks: $tasks, idPrefix: idPrefix, maxHeight: max(120, geo.size.height * 0.55))
+                CappedTaskList(tasks: $tasks, idPrefix: idPrefix, day: day, maxHeight: max(120, geo.size.height * 0.55))
                     .padding(.bottom, 8)
                 NotesEditor(text: $text, hint: hint, focusToken: focusToken, accessibilityLabel: accessibilityLabel)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

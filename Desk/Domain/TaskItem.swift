@@ -7,15 +7,28 @@ struct TaskItem: Codable, Hashable, Identifiable, Sendable {
     var text: String
     var isDone: Bool
     var doneAt: Date?
+    /// Day (`LocalDate.key`) whose page the task was checked off on. A finished week task
+    /// shows only on that day; absent on tasks finished before this existed (see `isVisible`).
+    var doneOn: Int?
 
-    init(id: UUID = UUID(), text: String, isDone: Bool = false, doneAt: Date? = nil) {
+    init(id: UUID = UUID(), text: String, isDone: Bool = false, doneAt: Date? = nil, doneOn: Int? = nil) {
         self.id = id
         self.text = text
         self.isDone = isDone
         self.doneAt = doneAt
+        self.doneOn = doneOn
     }
 
     var isBlankText: Bool { text.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// Whether a week task belongs on `day`'s page: open tasks show every day of the week,
+    /// finished ones only on the day they were checked off.
+    func isVisible(on day: LocalDate, calendar: DeskCalendar) -> Bool {
+        guard isDone else { return true }
+        if let doneOn { return doneOn == day.key }
+        if let doneAt { return calendar.localDate(from: doneAt) == day }
+        return true
+    }
 }
 
 extension Array where Element == TaskItem {
@@ -68,14 +81,34 @@ extension Array where Element == TaskItem {
         self[i].text = text
     }
 
-    mutating func toggle(id: UUID, now: Date = Date()) {
+    /// Checks a task off (or back on). `day` is the page it happened on, kept in `doneOn`.
+    mutating func toggle(id: UUID, on day: LocalDate? = nil, now: Date = Date()) {
         guard let i = firstIndex(where: { $0.id == id }) else { return }
         self[i].isDone.toggle()
         self[i].doneAt = self[i].isDone ? now : nil
+        self[i].doneOn = self[i].isDone ? day?.key : nil
     }
 
     mutating func remove(id: UUID) {
         removeAll { $0.id == id }
+    }
+
+    // MARK: Week lists seen from one day
+
+    /// The week tasks to show on `day`'s page (finished ones only on the day they were done).
+    func visible(on day: LocalDate, calendar: DeskCalendar) -> [TaskItem] {
+        filter { $0.isVisible(on: day, calendar: calendar) }
+    }
+
+    /// The whole week list after `day`'s page edited its `visible` slice: the hidden tasks
+    /// (finished on other days) are kept, each near where it was.
+    func replacingVisible(_ edited: [TaskItem], on day: LocalDate, calendar: DeskCalendar) -> [TaskItem] {
+        let editedIDs = Set(edited.map(\.id))
+        var result = edited
+        for (i, task) in enumerated() where !task.isVisible(on: day, calendar: calendar) && !editedIDs.contains(task.id) {
+            result.insert(task, at: Swift.min(i, result.count))
+        }
+        return result
     }
 
     /// Drops lines with no text, keeping the one still being edited.

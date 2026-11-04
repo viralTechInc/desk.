@@ -8,6 +8,8 @@ struct TaskListEditor: View {
     @Binding var tasks: [TaskItem]
     /// Accessibility identifier prefix ("task" / "weekTask").
     let idPrefix: String
+    /// The page's day, recorded on tasks checked off here.
+    let day: LocalDate
 
     enum Focus: Hashable {
         case task(UUID)
@@ -33,7 +35,7 @@ struct TaskListEditor: View {
                     identifier: "\(idPrefix).\(index + 1)",
                     onToggle: {
                         withAnimation(.spring(duration: 0.28, bounce: 0.25)) {
-                            tasks.toggle(id: task.id)
+                            tasks.toggle(id: task.id, on: day)
                             tasks.pruneBlank(except: focusedTaskID)
                         }
                     },
@@ -245,13 +247,14 @@ struct TaskCount: View {
 struct CappedTaskList: View {
     @Binding var tasks: [TaskItem]
     let idPrefix: String
+    let day: LocalDate
     let maxHeight: CGFloat
     @State private var contentHeight: CGFloat = 0
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical) {
-                TaskListEditor(tasks: $tasks, idPrefix: idPrefix)
+                TaskListEditor(tasks: $tasks, idPrefix: idPrefix, day: day)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
             }
             .scrollIndicators(.automatic)
